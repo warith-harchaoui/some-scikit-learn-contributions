@@ -52,12 +52,21 @@ Two reasons:
 
 ### API
 
+> **Public API proposal — still open for discussion.** The
+> recommended canonical form is the 3-letter geometric code
+> below. Two other spellings (paper-bracket alias and per-axis
+> kwargs) are currently accepted under strict no-conflict
+> semantics, but the open-questions doc
+> [`docs/HDDC_OPEN_QUESTIONS.md`](../docs/HDDC_OPEN_QUESTIONS.md) §Q3
+> asks the maintainers whether to drop the other two from the
+> first PR and keep them as documentation-only aliases.
+
 ```python
 from sklearn.mixture import HighDimensionalGaussianMixture
 
 hgmm = HighDimensionalGaussianMixture(
     n_components=10,
-    model="akj_bk_Qk_dk",    # most general; 13 other strings supported
+    model="AVV",             # recommended canonical form; 13 others available
     # n_init defaults to 10 (KMeans++ exploration budget),
     # max_iter to 300, cattell_threshold to 0.5
     random_state=0,
@@ -68,6 +77,11 @@ hgmm.predict(X)              # hard assignment
 hgmm.predict_proba(X)        # responsibilities
 hgmm.score_samples(X)        # log-density per sample
 ```
+
+The 14 valid `model=` codes are listed in
+[`docs/HDDC.md`](../docs/HDDC.md) §1; geometric codes spell out
+`<Signal><Noise><Dim>` where signal ∈ {A, I, C, U} and
+noise / dim ∈ {V (varying per cluster), E (equal across clusters)}.
 
 The estimator passes `check_estimator` (verified against scikit-learn
 1.8: 43/44 sub-checks pass; the one skip is `check_pipeline_consistency`,

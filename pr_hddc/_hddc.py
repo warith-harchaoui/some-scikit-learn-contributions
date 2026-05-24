@@ -1326,10 +1326,29 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
            completed likelihood." IEEE TPAMI, 22(7), 719-725.
            <10.1109/34.865189>`
         """
+        # Single validated pass: mirrors ``score_samples`` /
+        # ``predict_proba`` (check_is_fitted + validate_data, then
+        # one walk through the per-cluster log-densities). Computes
+        # both the marginal log-likelihood (needed by BIC) and the
+        # log-responsibilities (needed by entropy) from one pass —
+        # avoids the wasteful ``self.bic(X) + self.predict_proba(X)``
+        # double walk.
         self._check_fitted()
-        resp = self.predict_proba(X)
+        X = self._validate_X_predict(X)
+        n_samples = X.shape[0]
+        log_prob_k = np.empty((n_samples, self.n_components))
+        for k in range(self.n_components):
+            log_prob_k[:, k] = self._compute_log_density(X, k)
+        log_prob_k = log_prob_k + np.log(self.weights_)
+        log_prob_norm = logsumexp(log_prob_k, axis=1)
+        log_resp = log_prob_k - log_prob_norm[:, None]
+        bic_value = (
+            -2.0 * log_prob_norm.sum()
+            + self._n_parameters() * math.log(n_samples)
+        )
+        resp = np.exp(log_resp)
         entropy = -float(xlogy(resp, resp).sum())
-        return self.bic(X) + 2.0 * entropy
+        return bic_value + 2.0 * entropy
 
     # ------------------------------------------------------------------ #
     # sklearn tags
