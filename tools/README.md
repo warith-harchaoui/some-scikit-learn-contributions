@@ -8,7 +8,7 @@ serve as candidates for a future sklearn helper.
 - [Part 1. `auto_select_mixture` — ICL-best across families and K](#part-1-auto_select_mixture--icl-best-across-families-and-k-in-one-call)
 - [Part 2. `estimate_k_range` — pick `K_grid` automatically](#part-2-estimate_k_range--pick-k_grid-automatically)
 
-## Part 1. `auto_select_mixture` — ICL-best across families and K in one call
+## Part 1. `auto_select_mixture` — ICL-best across families and K in one call: GMM + HDDC
 
 Selecting both the **model structure** (Gaussian-mixture covariance
 type, HDDC sub-model, …) and the **number of clusters $K$** is usually
@@ -114,6 +114,18 @@ top 8 by ICL:
 Use ``--hddc-only`` or ``--gmm-only`` to restrict the search;
 ``iris``, ``wine``, ``olivetti`` are also available out of the box.
 
+The CLI has a **predict mode** that loads a previously-trained result
+and emits labels / probabilities for new data:
+
+```bash
+# Train and pickle the winning fit:
+python tools/auto_mixture.py digits --output best.pkl
+
+# Predict on new data using that fit:
+python tools/auto_mixture.py --load best.pkl --input new_X.npz \
+                             --output preds.npz
+```
+
 ### 1.5 API
 
 ```python
@@ -125,10 +137,13 @@ from auto_mixture import (
 
 result = auto_select_mixture(
     X,
-    K_grid=range(2, 16),
+    K_grid=None,             # None → estimate_k_range(X) picks the grid
+    criterion="icl",         # "icl" (default) or "bic"
     n_init=5,                # kmeans++ budget per K
     max_iter=200,            # EM iteration cap per family
-    cattell_threshold=0.5,   # HDDC signal-dim selector
+    cattell_threshold=0.5,   # HDDC signal-dim selector (see docs/HDDC.md §3)
+    reg_covar_gmm=None,      # float, {cov: float}, or None (per-type defaults:
+                             #   1e-1 for "full", 1e-3 otherwise)
     # Optional restrictions:
     # gmm_families=("diag", "full"),
     # hddc_models=("AVV", "AEE"),
@@ -136,18 +151,30 @@ result = auto_select_mixture(
 
 print(result.family)         # e.g. "HDDC (AVV)"
 print(result.K)              # e.g. 10
-print(result.icl)            # e.g. 12345.6
+print(result.score)          # winning criterion value (lower is better)
+print(result.criterion)      # "icl" or "bic"
+print(result.icl)            # back-compat alias for `score`
 labels = result.fit.predict(X)
 
-# All ICL values that were tested:
-for (family, K), icl in sorted(result.icl_grid.items(),
-                                key=lambda kv: kv[1])[:5]:
-    print(f"{family:20s} K={K:3d}  ICL={icl:.2f}")
+# All criterion values that were tested:
+for (family, K), s in sorted(result.score_grid.items(),
+                              key=lambda kv: kv[1])[:5]:
+    print(f"{family:20s} K={K:3d}  {result.criterion.upper()}={s:.2f}")
 ```
 
+`result.score_grid` is keyed by `(family, K)`; `result.icl_grid` is a
+back-compat alias kept for callers from before the `criterion` knob
+was added.
+
 The returned object also reports `n_fits` (how many configurations
-actually succeeded — some HDDC sub-models can fail on small clusters)
-and `elapsed` (wall clock, in seconds).
+actually succeeded — some HDDC sub-models can fail on small clusters,
+and the loop logs+skips rather than aborts) and `elapsed` (wall clock,
+in seconds).
+
+The `cattell_threshold=0.5` default is the HDDC scree-rule sensitivity
+and is **not** a noise-knob — it changes `d_k`, which changes
+`_n_parameters`, which changes BIC and ICL. The rationale and
+HDclassif comparison live in [`../docs/HDDC.md`](../docs/HDDC.md) §3.
 
 ### 1.6 When does what win?
 
@@ -329,5 +356,9 @@ Calling out three knobs for the curious:
   one-page derivation of $\mathrm{ICL} = \mathrm{BIC} + 2H$.
 - [`../docs/INFORMATION_CRITERIA.md`](../docs/INFORMATION_CRITERIA.md) §3 — the
   PSNC y-axis convention used to render ICL curves on a shared axis.
+- [`../docs/HDDC.md`](../docs/HDDC.md) — naming-scheme tradeoffs for the
+  14 HDDC sub-models swept by `auto_select_mixture`, the per-row
+  parameter-count audit (which BIC and ICL inherit), and the
+  Cattell scree rule behind the `cattell_threshold` knob.
 - [`../docs/FOR_REVIEWERS.md`](../docs/FOR_REVIEWERS.md) — the broader
   scientific argument for why ICL beats BIC on heavy-tailed data.

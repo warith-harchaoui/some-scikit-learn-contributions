@@ -84,6 +84,24 @@ ICL = BIC + 2H` so the entropy contribution is visible:
 
 ![ICL minus BIC is exactly the responsibility entropy 2H; it kicks in as K grows past K*.](../figures/fig_icl_decomposition.png)
 
+### Real-world evidence: Roeder (1990) galaxies
+
+The Roeder galaxies dataset (n = 82 1D velocity measurements of
+galaxies in the Corona Borealis region) is the canonical
+finite-mixture model-selection benchmark; the literature consensus
+is K ≈ 3 superclusters. Sweeping K = 2..12 with `GaussianMixture(covariance_type="full")`:
+both BIC and ICL pick K = 3, but **ICL is much more decisive** —
+its curve is sharper at the minimum, while BIC's is shallow enough
+that K = 4 is nearly tied. On a held-out slice of this dataset the
+order between K = 3 and K = 4 BIC flips routinely; ICL stays put.
+This is the small-n, real-data face of the same argument the
+Student-mixture test makes in synthetic.
+
+![Galaxies (Roeder 1990, n=82): BIC and ICL both pick K=3, but ICL's minimum is sharply defined while BIC's is shallow and seed-sensitive.](../figures/fig_real_icl_galaxies.png)
+
+Reproducible via `python figures/real_world_examples.py`
+(`demo_icl_galaxies`).
+
 ### What this PR changes
 
 | File | Change |

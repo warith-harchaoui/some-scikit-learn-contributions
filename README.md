@@ -17,10 +17,10 @@ snippets, real-world demos, and technical material.
 
 ## The PRs
 
-| Order | Folder | What it adds | Status |
-| --- | --- | --- | --- |
-| 1 | [`pr_gmm_icl/`](pr_gmm_icl/) | **ICL PR** — `icl()` method on `GaussianMixture`, alongside `bic()` | ready |
-| 2 | [`pr_hddc/`](pr_hddc/)       | **HDDC PR** — new estimator `HighDimensionalGaussianMixture` (14 sub-models) | API review pending |
+| Order | Folder | What it adds |
+| --- | --- | --- |
+| 1 | [`pr_gmm_icl/`](pr_gmm_icl/) | **ICL PR** — `icl()` method on `GaussianMixture`, alongside `bic()` |
+| 2 | [`pr_hddc/`](pr_hddc/)       | **HDDC PR** — new estimator `HighDimensionalGaussianMixture` (14 sub-models) |
 
 Each `pr_*/` subfolder contains:
 

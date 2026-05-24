@@ -8,6 +8,8 @@
 
 HDDC is a parsimonious Gaussian mixture for high-dimensional data: each cluster's covariance is factored into a low-rank signal subspace plus an isotropic noise residual, so the parameter count grows linearly (not quadratically) with the feature dimension. The reference R implementation is [`HDclassif`](https://CRAN.R-project.org/package=HDclassif) (Berge, Bouveyron & Girard, 2012). scikit-learn currently has no parsimonious-GMM family in the `n << p` regime; this PR fills that gap.
 
+> **Reviewer companion:** [`docs/HDDC.md`](../docs/HDDC.md) is the deep-dive reference for this PR — naming-scheme tradeoffs (paper bracket vs geometric code vs per-axis kwargs), the per-row parameter-count audit against Bouveyron 2007 Table 1, and the Cattell scree rule for `d_k` (including why the default differs from `HDclassif`).
+
 ## Reference Issues/PRs
 
 - Companion PR: "ENH Add ICL criterion to `GaussianMixture`" (the ICL PR).
@@ -104,6 +106,53 @@ possible the conventions of `GaussianMixture`. Key choices:
 - **Tests** cover all 14 sub-models, the `n_parameters` count against
   the paper's table, and the Student-mixture selection argument.
 
+### Real-world evidence
+
+Two head-to-head comparisons of `GaussianMixture(covariance_type="diag")`
+against `HighDimensionalGaussianMixture(model="AVV")` on canonical
+sklearn datasets, with K either given (oracle) or selected by ICL on
+a sweep. Both estimators receive the same EM seeds, the same KMeans
+init, and the same K-grid; the only difference is the covariance
+parameterization.
+
+#### Olivetti faces — the `n ≤ p` regime
+
+10 people from `fetch_olivetti_faces`, raw 4096-dim pixels projected
+to 99 features via PCA: `n = 100, p ≈ 99, K_true = 10`. This is the
+regime that motivates HDDC. **AVV HDDC recovers K = 10 exactly
+under ICL** (NMI 0.62, ACC 0.53); **diagonal GMM ICL-collapses to
+K = 4** (NMI 0.28, ACC 0.30) because it has nowhere to put per-cluster
+feature correlation, so it pays for an extra cluster more than it can
+earn back in fit. Even at K = K_true (oracle), the two are
+comparable on metrics — the parsimony gap is in model *selection*,
+not in fit.
+
+![Olivetti, K selected by ICL: GMM(diag) collapses to K=4 and merges true classes; AVV HDDC recovers K_true=10.](../figures/fig_real_hddc_olivetti_cm_icl.png)
+![Olivetti, K known (oracle K=10): GMM and HDDC are comparable per-cluster — the gap shows up in K-selection, not fit.](../figures/fig_real_hddc_olivetti_cm_known.png)
+![Olivetti: K selected by ICL per method vs the oracle K=10. HDDC nails K_true; diagonal GMM picks K=4.](../figures/fig_real_hddc_olivetti_K.png)
+![Olivetti: NMI / ARI / ACC bars for both methods, K known and K ICL-selected.](../figures/fig_real_hddc_olivetti_metrics.png)
+
+#### Digits — the `n >> p` regime
+
+`load_digits`: `n = 1797, p = 64, K_true = 10`. **At K known
+(K = 10), HDDC beats diagonal GMM cleanly** — NMI 0.80 vs 0.61,
+ACC 0.84 vs 0.64 — because per-cluster off-diagonal covariance
+structure carries real signal in the digit-stroke pixel space. At
+K unknown both methods saturate the K-grid ceiling (K = 20); with
+20 small clusters, per-cluster correlations matter less and the two
+methods become comparable on purity. This is the expected pattern:
+HDDC's structural advantage is largest when each cluster has to do
+work, not when the data is sliced into 20 small homogeneous pieces.
+
+![Digits, K selected by ICL: both methods saturate the K-grid ceiling at K=20; per-cluster purity is comparable.](../figures/fig_real_hddc_digits_cm_icl.png)
+![Digits, K known (oracle K=10): HDDC's per-cluster purity is visibly higher than diagonal GMM's.](../figures/fig_real_hddc_digits_cm_known.png)
+![Digits: K selected by ICL per method vs the oracle K=10. Both saturate the K-grid at K=20.](../figures/fig_real_hddc_digits_K.png)
+![Digits: NMI / ARI / ACC bars for both methods, K known and K ICL-selected. HDDC's lead at K-known is the load-bearing result.](../figures/fig_real_hddc_digits_metrics.png)
+
+All figures are reproducible via
+`python figures/real_world_examples.py` (`demo_hddc_digits`,
+`demo_hddc_olivetti`).
+
 ### Tests
 
 - `test_hddc_check_estimator` — sklearn common-tests.
@@ -140,9 +189,11 @@ possible the conventions of `GaussianMixture`. Key choices:
   per-axis kwargs (`signal=`, `noise=`, `dim=`). I lean on the
   3-letter geometric code as canonical because it is short and easy
   to type, but happy to make any of the three the recommended form.
-- **Gallery example.** A narrative example walking through the
-  Student-mixture and high-dim digits arguments could land alongside
-  this PR; happy to write it once the API is reviewer-stable.
+- **Gallery example.** The repo ships head-to-head Olivetti and
+  digits demos (see *Real-world evidence* above and
+  `figures/real_world_examples.py`); happy to port them into a
+  narrative `examples/mixture/plot_hddc_*.py` gallery entry once
+  the API is reviewer-stable.
 
 ---
 

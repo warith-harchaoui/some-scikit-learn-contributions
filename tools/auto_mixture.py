@@ -297,7 +297,7 @@ def auto_select_mixture(
 # Standalone CLI for quick experimentation.
 # ---------------------------------------------------------------------------
 def _cli(argv: Sequence[str] | None = None) -> int:
-    """``python figures/auto_mixture.py [dataset|--input X.npz]``.
+    """``python tools/auto_mixture.py [dataset|--input X.npz]``.
 
     Two modes:
 
