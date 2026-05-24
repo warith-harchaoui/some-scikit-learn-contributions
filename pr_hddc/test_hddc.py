@@ -452,7 +452,7 @@ def test_hddc_icl_student_mixture():
     for K in Ks:
         hgmm = HighDimensionalGaussianMixture(
             n_components=K, model="AVV",
-            random_state=0, n_init=2, max_iter=100,
+            random_state=0, n_init=5, max_iter=100,
         ).fit(X)
         bic_scores.append(hgmm.bic(X))
         icl_scores.append(hgmm.icl(X))

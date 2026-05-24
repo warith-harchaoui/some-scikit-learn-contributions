@@ -179,7 +179,7 @@ def test_gaussian_mixture_icl_student_mixture(df):
     for K in Ks:
         gmm = GaussianMixture(
             n_components=K, covariance_type="full",
-            random_state=0, n_init=5, max_iter=300, tol=1e-5,
+            random_state=0, n_init=10, max_iter=300, tol=1e-5,
         ).fit(X)
         bic_scores.append(gmm.bic(X))
         icl_scores.append(gmm.icl(X))

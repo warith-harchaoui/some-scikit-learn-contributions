@@ -87,7 +87,7 @@ def make_fig_icl_student() -> str:
     for K in Ks:
         gmm = GaussianMixture(
             n_components=K, covariance_type="full",
-            random_state=0, n_init=5, max_iter=300,
+            random_state=0, n_init=10, max_iter=300,
         ).fit(X)
         bic.append(gmm.bic(X))
         icl.append(_icl_for_gmm(gmm, X))
@@ -173,7 +173,7 @@ def make_fig_holdout_vs_ic() -> str:
     for K in Ks:
         gmm = GaussianMixture(
             n_components=K, covariance_type="full",
-            random_state=0, n_init=5, max_iter=500, reg_covar=1e-5,
+            random_state=0, n_init=10, max_iter=300, reg_covar=1e-5,
         ).fit(X_tr)
         ll_tr.append(gmm.score(X_tr) * len(X_tr))
         ll_va.append(gmm.score(X_va) * len(X_va))
@@ -254,7 +254,7 @@ def make_fig_icl_decomposition() -> str:
     bic, two_H, icl = [], [], []
     for K in Ks:
         gmm = GaussianMixture(n_components=K, covariance_type="full",
-                              random_state=0, n_init=5, max_iter=200).fit(X)
+                              random_state=0, n_init=10, max_iter=300).fit(X)
         b = gmm.bic(X)
         _, log_resp = gmm._estimate_log_prob_resp(X)
         H = -np.nansum(np.exp(log_resp) * log_resp)
@@ -356,7 +356,7 @@ def demo_icl_galaxies() -> str:
     bic, icl = [], []
     for K in Ks:
         g = _gmm_with_K(X, K, "full", reg_covar=1e-4,
-                        n_init=20, max_iter=500)
+                        n_init=10, max_iter=300)
         bic.append(g.bic(X)); icl.append(_icl_gmm(g, X))
     K_bic = Ks[int(np.argmin(bic))]
     K_icl = Ks[int(np.argmin(icl))]

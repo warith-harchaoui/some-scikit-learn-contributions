@@ -250,10 +250,10 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
     tol : float, default=1e-3
         Convergence threshold on the log-likelihood.
 
-    max_iter : int, default=100
+    max_iter : int, default=300
         Maximum number of EM iterations.
 
-    n_init : int, default=1
+    n_init : int, default=10
         Number of initializations to explore.
 
         - With ``init_params="kmeans"`` (recommended), this is the
@@ -368,8 +368,8 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         cattell_threshold: float = 0.5,
         signal_dim: Optional[int] = None,
         tol: float = 1e-3,
-        max_iter: int = 100,
-        n_init: int = 1,
+        max_iter: int = 300,
+        n_init: int = 10,
         init_params: Union[str, np.ndarray] = "kmeans",
         min_cluster_size: int = 5,
         random_state=None,

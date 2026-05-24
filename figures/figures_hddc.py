@@ -538,7 +538,7 @@ def make_fig_hddc_vs_gmm_cm() -> str:
         return GaussianMixture(
             n_components=K, covariance_type="diag",
             init_params="kmeans", random_state=0,
-            n_init=5, max_iter=200, reg_covar=1e-3,
+            n_init=10, max_iter=300, reg_covar=1e-3,
         ).fit(X)
 
     def _fit_hddc(K):
@@ -546,7 +546,7 @@ def make_fig_hddc_vs_gmm_cm() -> str:
             n_components=K, model="AVV",
             cattell_threshold=0.5, min_cluster_size=2,
             init_params="kmeans", random_state=0,
-            n_init=5, max_iter=200,
+            n_init=10, max_iter=300,
         ).fit(X)
 
     K_gmm, gmm = None, None
@@ -969,7 +969,7 @@ def demo_hddc_digits() -> list[str]:
     return _hddc_vs_gmm_panel(
         name="digits", X=X, y=y,
         K_true=K_true, K_grid=K_grid,
-        threshold=0.5, n_init=10, max_iter=200,
+        threshold=0.5, n_init=10, max_iter=300,
         fig_prefix=os.path.join(HERE, "fig_real_hddc_digits"),
     )
 
@@ -997,7 +997,7 @@ def demo_hddc_olivetti(n_people: int = 10) -> list:
     return _hddc_vs_gmm_panel(
         name="Olivetti faces", X=X, y=y,
         K_true=K_true, K_grid=K_grid,
-        threshold=0.5, n_init=10, max_iter=60,
+        threshold=0.5, n_init=10, max_iter=300,
         fig_prefix=os.path.join(HERE, "fig_real_hddc_olivetti"),
     )
 

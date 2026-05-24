@@ -193,6 +193,37 @@ All figures are reproducible via
 - `test_hddc_mclust_codes_rejected` —
   `model="VVV"` raises with a pointer to the HDDC table.
 
+### Composability with `GaussianMixture` via shared ICL
+
+This PR makes `HighDimensionalGaussianMixture` interchangeable with
+`GaussianMixture` under the same `ICL = BIC + 2H` ranking. Because
+the ICL formula depends only on `BIC` (parameter penalty + log-
+likelihood, both well-defined for any mixture) and the posterior
+responsibilities (which every fitted mixture exposes via
+`predict_proba`), one ICL score is directly comparable across the two
+families — the parameter penalty `ν(K, family)·log n` does the
+heavy lifting and is family-specific by construction.
+
+The downstream [`tools/auto_select_mixture`](../tools/auto_mixture.py)
+demonstrates this graceful mixing: it sweeps every `(family, K)` pair
+over the 4 `GaussianMixture` covariance types and the 14
+`HighDimensionalGaussianMixture` sub-models, fits each from a single
+shared KMeans++ initialisation per `K` (so each per-family EM is one
+deterministic refinement with `n_init=1`), and returns
+`argmin_(K, family) ICL`. On
+[`load_digits`](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_digits.html)
+the joint winner is `GMM(diag)` at `K=12`; on raw Olivetti faces
+(`n=100, p=4096`) the joint winner is `HDDC(AVV)` at `K=14`. The
+"as `p/n` grows, the winner migrates from full-Σ GMM → diag-GMM →
+HDDC" pattern that the PR figures show qualitatively becomes a
+quantitative `argmin` once both families share the same selection
+criterion.
+
+This selector is **not** itself part of this PR — it lives under
+`tools/` as downstream personal code — but it is the natural shape
+of a future `sklearn.mixture.select_by_icl(X, K_grid=...)` helper
+that the two PRs together unlock.
+
 ### Things I'd appreciate reviewer input on
 
 - **Should `HighDimensionalGaussianMixture` inherit from
