@@ -8,7 +8,9 @@
 
 HDDC is a parsimonious Gaussian mixture for high-dimensional data: each cluster's covariance is factored into a low-rank signal subspace plus an isotropic noise residual, so the parameter count grows linearly (not quadratically) with the feature dimension. The reference R implementation is [`HDclassif`](https://CRAN.R-project.org/package=HDclassif) (Berge, Bouveyron & Girard, 2012). scikit-learn currently has no parsimonious-GMM family in the `n << p` regime; this PR fills that gap.
 
-> **Reviewer companion:** [`docs/HDDC.md`](../docs/HDDC.md) is the deep-dive reference for this PR — naming-scheme tradeoffs (paper bracket vs geometric code vs per-axis kwargs), the per-row parameter-count audit against Bouveyron 2007 Table 1, and the Cattell scree rule for `d_k` (including why the default differs from `HDclassif`).
+> **Reviewer companion:** [`docs/HDDC.md`](../docs/HDDC.md) is the deep-dive reference for this PR — naming-scheme tradeoffs (paper bracket vs geometric code vs per-axis kwargs), the per-row parameter-count audit against Bouveyron 2007 Table 1, and the Cattell scree rule for `d_k` (algorithm ported from `HDclassif` bit-for-bit; default threshold differs).
+>
+> **Numerical parity check vs HDclassif:** [`hdclassif_parity/`](../hdclassif_parity/) is a reproducible head-to-head against the R reference implementation. Same data, same KMeans init, same Cattell threshold, single EM pass on each side, then every fitted parameter is diffed via [`report.md`](../hdclassif_parity/report.md). The implementation matches HDclassif to machine precision on every dataset where bit-equivalent agreement is reasonable (both synthetic mixtures, raw Olivetti at p=4096, and every forced-`d_k` configuration); the few remaining mismatches are clustering-boundary sensitivity and EM-trajectory floating-point drift at K=10, not algorithm differences.
 
 ## Reference Issues/PRs
 
@@ -103,6 +105,13 @@ possible the conventions of `GaussianMixture`. Key choices:
   (no clustering exploration step), `n_init` falls back to its
   classical "EM restarts" meaning. Spelled out in the `n_init`
   docstring.
+- **SVD path for the `n << p` regime.** When `p > n`, the per-cluster
+  M-step uses `np.linalg.svd(Xc, full_matrices=False)` on the
+  centered+weighted data matrix instead of forming the `p × p`
+  covariance and eigendecomposing it. Cost drops from `O(p³)` to
+  `O(n² p)` — at the Olivetti scale (`n=100, p=4096`) that's roughly
+  a 1700× speedup. Without this, a single EM iteration on raw
+  Olivetti is wall-clock infeasible. HDclassif uses the same trick.
 - **Tests** cover all 14 sub-models, the `n_parameters` count against
   the paper's table, and the Student-mixture selection argument.
 

@@ -11,7 +11,7 @@ each cluster's signal dimension `d_k`.
 
 - [1. Naming the HDDC sub-models](#1-naming-the-hddc-sub-models)
 - [2. Parameter count audit (Bouveyron Table 1)](#2-parameter-count-audit-bouveyron-table-1)
-- [3. The Cattell scree rule for `d_k`](#3-the-cattell-scree-rule-for-d_k)
+- [3. The Cattell scree rule for `d_k` (HDclassif-aligned)](#3-the-cattell-scree-rule-for-d_k-hdclassif-aligned)
 
 ## 1. Naming the HDDC sub-models
 
@@ -505,7 +505,7 @@ unbiased: each sub-model is charged exactly the parameters
 Bouveyron's table prescribes, and the BIC/ICL ranking reflects the
 model's true complexity.
 
-## 3. The Cattell scree rule for `d_k`
+## 3. The Cattell scree rule for `d_k` (HDclassif-aligned)
 
 This section fully specifies how HDDC picks each cluster's intrinsic
 signal dimensionality `d_k`. The mechanism rests on Cattell's "scree
@@ -739,7 +739,40 @@ Three reasons:
    to *report* the value they used; if the parameter is reachable
    only via private attributes, reproducibility suffers.
 
-### 3.8 Reproducibility checklist
+### 3.8 Noise variance `b_k` (HDclassif-aligned)
+
+After the M-step's eigendecomposition gives per-cluster eigenvalues
+and signal dimensions, the noise variance is:
+
+```
+b_k = (trace_k − Σ_{j=1..d_k} λ_{k,j}) / (p − d_k)
+```
+
+i.e. the average noise eigenvalue spread over the **full** `(p −
+d_k)` model noise subspace. When `n_k < p`, the empirical scatter
+has rank at most `n_k − 1` and the trailing `(p − n_k)`
+"eigenvalues" are zero. HDclassif averages over the full model
+noise dimension anyway (these null-space directions count as
+zero-variance contributors); we match that convention so BIC and
+ICL come out on the same scale.
+
+For tied-noise models (`*E*` codes, second letter `E`), the per-
+cluster `b_k` is then collapsed to a single tied value using
+HDclassif's mixing-proportion-weighted formula:
+
+```
+b_tied = (Σ_k π_k · (trace_k − Σ_{j=1..d_k} λ_{k,j})) / (p − Σ_k π_k · d_k)
+```
+
+— **not** the unweighted mean of per-cluster `b_k`. This matters on
+imbalanced clusters and was a source of `b_k` drift before the
+alignment.
+
+Both formulas are implemented in
+`pr_hddc/_hddc.py::_apply_model_constraints` and validated against
+HDclassif in `hdclassif_parity/`.
+
+### 3.9 Reproducibility checklist
 
 If you publish results using this estimator, please report:
 
