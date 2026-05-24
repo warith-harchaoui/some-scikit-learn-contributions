@@ -161,7 +161,7 @@ work, not when the data is sliced into 20 small homogeneous pieces.
 ![Digits: NMI / ARI / ACC bars for both methods, K known and K ICL-selected. HDDC's lead at K-known is the load-bearing result.](../figures/fig_real_hddc_digits_metrics.png)
 
 All figures are reproducible via
-`python figures/real_world_examples.py` (`demo_hddc_digits`,
+`python figures/figures_hddc.py` (`demo_hddc_digits`,
 `demo_hddc_olivetti`).
 
 ### Tests
@@ -202,7 +202,7 @@ All figures are reproducible via
   to type, but happy to make any of the three the recommended form.
 - **Gallery example.** The repo ships head-to-head Olivetti and
   digits demos (see *Real-world evidence* above and
-  `figures/real_world_examples.py`); happy to port them into a
+  `figures/figures_hddc.py`); happy to port them into a
   narrative `examples/mixture/plot_hddc_*.py` gallery entry once
   the API is reviewer-stable.
 

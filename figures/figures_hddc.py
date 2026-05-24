@@ -19,7 +19,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
 from sklearn.datasets import fetch_olivetti_faces, load_digits
-from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 from sklearn.mixture import GaussianMixture
 
@@ -46,8 +45,9 @@ _draft_hddc = importlib.util.module_from_spec(_hddc_spec)
 _hddc_spec.loader.exec_module(_draft_hddc)
 HighDimensionalGaussianMixture = _draft_hddc.HighDimensionalGaussianMixture
 
-# Alias used by the demo block (lifted from the old
-# ``real_world_examples.py``).
+# Local alias for readability: the demo block uses ``_icl_gmm`` to
+# match the BIC / ICL convention spelled out in
+# ``docs/INFORMATION_CRITERIA.md``.
 _icl_gmm = _icl_for_gmm
 
 
@@ -592,7 +592,7 @@ def make_fig_hddc_vs_gmm_cm() -> str:
 # Driver
 # ---------------------------------------------------------------------------
 
-# --- helpers and demos lifted from real_world_examples.py ---
+# --- helpers used by the digits + Olivetti demos ---
 def _gmm_with_K(X, K, covariance_type, reg_covar, n_init, max_iter, seed=0):
     # GaussianMixture uses sklearn's KMeans internally for
     # ``init_params="kmeans"`` (default), which itself uses kmeans++
@@ -976,25 +976,23 @@ def demo_hddc_digits() -> list[str]:
 
 
 
-def demo_hddc_olivetti(n_people: int = 10, n_pca: int = 200) -> str:
+def demo_hddc_olivetti(n_people: int = 10) -> list:
     """GMM vs HDDC on Olivetti faces, K known vs K unknown.
 
-    Limited to ``n_people`` individuals to keep runtime manageable
-    while preserving the `n << p` regime that motivates HDDC. The
-    raw Olivetti pixels live in p = 4096, so we project once to
-    ``n_pca`` features (default 200) to make the eigendecomposition
-    inside HDDC tractable while keeping n < p (n = 10 * n_people
-    and p_eff = n_pca).
+    Limited to ``n_people`` individuals to keep runtime tractable
+    while preserving the ``n << p`` regime that motivates HDDC. We
+    use the **raw** 4096-dim pixel vectors (no PCA): pre-projecting
+    would conflate PCA and HDDC in the comparison. Tractability on
+    the HDDC side comes from the SVD-of-data-matrix path in
+    ``pr_hddc/_hddc.py`` (cheap when ``p > n``).
     """
     log.info("\n== Demo HDDC-olivetti: GMM vs HDDC, K known vs unknown ==")
     faces = fetch_olivetti_faces()
     X_all, y_all = faces.data, faces.target
     mask = y_all < n_people
-    X_raw, y = X_all[mask], y_all[mask]
-    from sklearn.decomposition import PCA
-    n_pca = min(n_pca, X_raw.shape[0] - 1, X_raw.shape[1])
-    X = PCA(n_components=n_pca, random_state=0).fit_transform(X_raw)
-    log.info(f"  n={X.shape[0]}, p_raw=4096, p_pca={X.shape[1]}, K_true={n_people}")
+    X, y = X_all[mask].astype(float), y_all[mask]
+    log.info(f"  n={X.shape[0]}, p={X.shape[1]} (raw pixels, no PCA), "
+             f"K_true={n_people}")
     K_true = n_people
     K_grid = [4, 6, 8, 10, 12, 14]
     return _hddc_vs_gmm_panel(

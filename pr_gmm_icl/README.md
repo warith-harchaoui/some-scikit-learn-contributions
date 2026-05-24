@@ -99,7 +99,7 @@ Student-mixture test makes in synthetic.
 
 ![Galaxies (Roeder 1990, n=82): BIC and ICL both pick K=3, but ICL's minimum is sharply defined while BIC's is shallow and seed-sensitive.](../figures/fig_real_icl_galaxies.png)
 
-Reproducible via `python figures/real_world_examples.py`
+Reproducible via `python figures/figures_icl.py`
 (`demo_icl_galaxies`).
 
 ### What this PR changes

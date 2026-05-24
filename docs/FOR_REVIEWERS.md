@@ -156,7 +156,7 @@ separated location shifts. We fit `GaussianMixture` for
 `K in {2, ..., 20}` and record BIC and ICL.
 
 The result, stable across seeds and reproduced by
-`figures/make_figures.py::make_fig_icl_student`:
+`figures/figures_icl.py::make_fig_icl_student`:
 
 - For `df ~ 3-5`, BIC consistently picks `K_hat_BIC in {7, ..., 11}`
   on `n = 100,000` samples drawn from a true `K = 3` mixture. The
@@ -291,7 +291,7 @@ both methods saturate the K-grid ceiling (K = 20), with HDDC's
 clusters marginally purer per row; the dataset is large and benign
 enough that the choice between families matters less than the
 choice of K-grid. Both figures are reproducible via
-`python figures/real_world_examples.py`.
+`python figures/figures_hddc.py` (or `python figures/make_all.py` to regenerate everything).
 
 ![Olivetti faces (10 people after PCA→99, n=100): GMM(diag) ICL-collapses to K=4 and merges true classes; AVV HDDC recovers K_true=10. The n ≤ p regime amplifies the parsimony gap.](../figures/fig_real_hddc_olivetti_cm_icl.png)
 

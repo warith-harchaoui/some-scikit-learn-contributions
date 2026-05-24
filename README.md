@@ -52,8 +52,10 @@ the same information-criterion story (`bic` and `icl` together).
 │
 ├── figures/                           <- PR-supporting figures + their scripts (sklearn contrib scope)
 │   ├── _style.py                      <- shared house style
-│   ├── make_figures.py                <- synthetic figures
-│   ├── real_world_examples.py         <- real-world demos (galaxies, digits, Olivetti)
+│   ├── _icl_compat.py                 <- shared ICL-on-GaussianMixture helper (until ICL PR lands)
+│   ├── figures_icl.py                 <- ICL PR figures (Student mixture + galaxies)
+│   ├── figures_hddc.py                <- HDDC PR figures (synthetic + digits + Olivetti)
+│   ├── make_all.py                    <- thin driver: regenerate every figure
 │   └── *.png
 │
 ├── docs/                              <- PR-related docs (sklearn reviewer scope)
@@ -89,11 +91,12 @@ proposed as an addition to sklearn itself.
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Synthetic figures used throughout the docs:
-python figures/make_figures.py
+# Regenerate every figure (synthetic + real-world demos):
+python figures/make_all.py
 
-# Real-world demos (galaxies, digits, Olivetti faces):
-python figures/real_world_examples.py
+# Or just the ICL-PR figures or HDDC-PR figures:
+#   python figures/figures_icl.py
+#   python figures/figures_hddc.py
 ```
 
 Both scripts are deterministic — same random seeds, byte-identical

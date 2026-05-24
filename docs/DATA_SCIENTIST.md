@@ -111,9 +111,9 @@ This is the "two-axis" selection that ICL makes well-behaved.
 
 ```bash
 pip install -r requirements.txt
-python figures/make_figures.py          # hero figure: BIC vs ICL on Student
-python figures/real_world_examples.py   # real datasets, including K-known
-                                        # vs K-unknown comparisons
+python figures/figures_icl.py    # ICL-PR figures: Student mixture + galaxies
+python figures/figures_hddc.py   # HDDC-PR figures: synthetic + digits + Olivetti
+# (or: python figures/make_all.py runs both)
 ```
 
 The figures in `figures/` are deterministic — same seeds, same output —
