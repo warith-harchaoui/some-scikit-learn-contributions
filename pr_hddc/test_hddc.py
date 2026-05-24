@@ -207,6 +207,31 @@ def test_hddc_icl_ge_bic():
     assert hgmm.icl(X) >= hgmm.bic(X) - 1e-6
 
 
+def test_hddc_random_init_runs_multiple_em_restarts():
+    """``init_params="random"`` flips ``n_init`` semantics to EM restarts.
+
+    With the default ``init_params="kmeans"``, ``n_init`` is the
+    KMeans++ exploration budget and the EM that follows runs once
+    from the best init. With ``init_params="random"`` there is no
+    KMeans pre-stage, so ``n_init`` falls back to its classical
+    meaning: ``n_init`` independent EM restarts from random
+    responsibility initialisations. This test pins the contract by
+    asserting (a) the fit completes, (b) ``lower_bound_`` is finite,
+    and (c) different ``n_init`` values produce equally valid fits
+    (no crash, no NaN, labels in range).
+    """
+    X, _ = _toy()
+    for n_init in (1, 3):
+        hgmm = HighDimensionalGaussianMixture(
+            n_components=3, model="AVV", init_params="random",
+            random_state=0, n_init=n_init, max_iter=50,
+        ).fit(X)
+        assert np.isfinite(hgmm.lower_bound_)
+        labels = hgmm.predict(X)
+        assert labels.shape == (X.shape[0],)
+        assert set(np.unique(labels)).issubset({0, 1, 2})
+
+
 def test_hddc_aic_bic_consistency():
     """AIC = BIC formula with parameter penalty ``2·ν`` vs ``ν·log n``.
 

@@ -259,7 +259,7 @@ set `signal_dim=d`.
 
 Resolution lives in `_resolve_model()`, called once at the top of
 `fit()`. After resolution, the canonical key is stored on
-`self._geometric_model_` (trailing underscore signals "fitted
+`self.geometric_model_` (trailing underscore signals "fitted
 attribute") so the rest of the code never has to branch on input
 form.
 
@@ -367,7 +367,7 @@ def _resolve_model(self):
             f"sub-models. In particular, signal='common_axis' (C) "
             f"requires dim='equal' (E)."
         )
-    self._geometric_model_ = code
+    self.geometric_model_ = code
 ```
 
 #### Why accept all three
