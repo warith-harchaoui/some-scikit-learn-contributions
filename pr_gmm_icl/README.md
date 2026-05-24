@@ -107,7 +107,7 @@ Reproducible via `python figures/real_world_examples.py`
 | File | Change |
 | ---- | ------ |
 | `sklearn/mixture/_gaussian_mixture.py` | Add `icl(X)` after `bic(X)` |
-| `sklearn/mixture/tests/test_gaussian_mixture.py` | Three new tests |
+| `sklearn/mixture/tests/test_gaussian_mixture.py` | Four new tests |
 | `doc/modules/mixture.rst` | New `.. _bic_icl:` dropdown |
 | `doc/whats_new/upcoming_changes/<N>.enhancement.rst` | Changelog |
 

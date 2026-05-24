@@ -325,7 +325,7 @@ you're curious.
 | --- | --- | --- |
 | the ICL PR: code | 4 lines in `_gaussian_mixture.py` + tests + docs | New `icl()` method aligned with `bic()` |
 | the ICL PR: runtime | One call to `_estimate_log_prob_resp` already computed during `fit` | Same scaling as `bic()` |
-| the HDDC PR: code | ~500 LOC new file + tests + gallery example | New estimator covering the `n << p` clustering use case |
+| the HDDC PR: code | ~1200 LOC new file + tests + gallery example | New estimator covering the `n << p` clustering use case |
 | the HDDC PR: API | One new public class | Generalizes `GaussianMixture`; exposes `bic()` and `icl()` |
 | Documentation | New dropdown in `mixture.rst` | Aligns with literature on heavy-tail-robust selection |
 

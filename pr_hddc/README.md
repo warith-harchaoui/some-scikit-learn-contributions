@@ -75,7 +75,7 @@ which the harness skips by design when the estimator declares
 
 | File | Change |
 | ---- | ------ |
-| `sklearn/mixture/_hddc.py` | New estimator `HighDimensionalGaussianMixture` (≈900 lines, including docstrings) |
+| `sklearn/mixture/_hddc.py` | New estimator `HighDimensionalGaussianMixture` (≈1200 lines, including docstrings) |
 | `sklearn/mixture/__init__.py` | Export `HighDimensionalGaussianMixture` |
 | `sklearn/mixture/tests/test_hddc.py` | Test suite (14 sub-models, parameter-count table 1, ICL/BIC selection on Student mixture, alias resolver, mclust-code rejection) |
 | `doc/modules/mixture.rst` | New `.. _hddc:` subsection (see `mixture_doc_snippet.rst`) |
