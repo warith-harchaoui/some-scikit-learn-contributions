@@ -79,7 +79,7 @@ def test_hddc_fit_predict_smoke(model):
     hgmm = HighDimensionalGaussianMixture(
         n_components=3, model=model, random_state=0, n_init=1, max_iter=50,
     ).fit(X)
-    assert hgmm._geometric_model_ == model
+    assert hgmm.geometric_model_ == model
     labels = hgmm.predict(X)
     assert labels.shape == (X.shape[0],)
     assert set(np.unique(labels)).issubset(set(range(3)))
@@ -310,7 +310,7 @@ def test_hddc_parameter_count_table1_all_rows(model, expected):
     """
     K, p, d = 4, 100, 10
     hgmm = HighDimensionalGaussianMixture(n_components=K, model=model)
-    hgmm._geometric_model_ = model
+    hgmm.geometric_model_ = model
     hgmm.n_features_in_ = p
     hgmm.signal_dims_ = [d] * K
     assert hgmm._n_parameters() == expected
@@ -378,7 +378,7 @@ def test_hddc_n_parameters_offaxis(model, K, p, d):
     both V (free-d) and E (common-d) sub-models.
     """
     hgmm = HighDimensionalGaussianMixture(n_components=K, model=model)
-    hgmm._geometric_model_ = model
+    hgmm.geometric_model_ = model
     hgmm.n_features_in_ = p
     hgmm.signal_dims_ = [d] * K
     expected = _expected_n_parameters(model, K, p, [d] * K)
@@ -411,7 +411,7 @@ def test_hddc_n_parameters_nonuniform_dk_v_models(model, K, p, signal_dims):
     are excluded; the off-axis test above covers them at uniform d.
     """
     hgmm = HighDimensionalGaussianMixture(n_components=K, model=model)
-    hgmm._geometric_model_ = model
+    hgmm.geometric_model_ = model
     hgmm.n_features_in_ = p
     hgmm.signal_dims_ = list(signal_dims)
     expected = _expected_n_parameters(model, K, p, signal_dims)
@@ -479,7 +479,7 @@ def test_hddc_model_alias_equivalence(geo, paper):
     b = HighDimensionalGaussianMixture(
         n_components=3, model=paper, random_state=0, n_init=1, max_iter=20,
     ).fit(X)
-    assert a._geometric_model_ == b._geometric_model_ == geo
+    assert a.geometric_model_ == b.geometric_model_ == geo
     # Exact same EM trajectory under same random_state. Aliases must
     # be **bit-equivalent**; default ``assert_allclose`` tolerances
     # would silently absorb a real implementation bug.
@@ -496,7 +496,7 @@ def test_hddc_model_kwargs_only_no_model():
         signal="anisotropic", noise="varying", dim="varying",
         random_state=0, n_init=1, max_iter=20,
     ).fit(X)
-    assert hgmm._geometric_model_ == "AVV"
+    assert hgmm.geometric_model_ == "AVV"
 
 
 def test_hddc_model_kwargs_partial_no_model_raises():
@@ -519,7 +519,7 @@ def test_hddc_model_kwargs_agree_with_model_is_legal():
         signal="anisotropic", noise="varying", dim="varying",
         random_state=0, n_init=1, max_iter=20,
     ).fit(X)
-    assert hgmm._geometric_model_ == "AVV"
+    assert hgmm.geometric_model_ == "AVV"
 
 
 def test_hddc_model_conflict_raises():

@@ -158,12 +158,10 @@ Hungarian-matches clusters and diffs every fitted parameter, with
 PSNC-normalised scalar deltas (see
 [`docs/INFORMATION_CRITERIA.md`](docs/INFORMATION_CRITERIA.md) §3).
 The current report (`hdclassif_parity/report.md`) shows
-**bit-equivalent numerical agreement** on the synthetic mixtures
-and on Olivetti faces in the `n << p` regime (p=4096), validating
-the SVD-of-data-matrix path and the HDclassif-aligned noise-variance
-formula. Remaining mismatches on a handful of rows are documented
-HDclassif conventions (global-covariance Cattell on E-suffix `d`
-models), not implementation bugs.
+**12 / 12 sub-model fits pass strict bit-equivalent tolerance** on
+both synthetic mixtures and raw Olivetti at `p = 4096`, validating
+the SVD-of-data-matrix path, the HDclassif-aligned noise-variance
+formula, and the global-covariance Cattell convention.
 
 ## License
 

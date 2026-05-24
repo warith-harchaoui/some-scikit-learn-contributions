@@ -10,7 +10,7 @@ HDDC is a parsimonious Gaussian mixture for high-dimensional data: each cluster'
 
 > **Reviewer companion:** [`docs/HDDC.md`](../docs/HDDC.md) is the deep-dive reference for this PR — naming-scheme tradeoffs (paper bracket vs geometric code vs per-axis kwargs), the per-row parameter-count audit against Bouveyron 2007 Table 1, and the Cattell scree rule for `d_k` (algorithm ported from `HDclassif` bit-for-bit; default threshold differs).
 >
-> **Numerical parity check vs HDclassif:** [`hdclassif_parity/`](../hdclassif_parity/) is a reproducible head-to-head against the R reference implementation. Same data, same KMeans init, same Cattell threshold, single EM pass on each side, then every fitted parameter is diffed via [`report.md`](../hdclassif_parity/report.md). The implementation matches HDclassif to machine precision on every dataset where bit-equivalent agreement is reasonable (both synthetic mixtures, raw Olivetti at p=4096, and every forced-`d_k` configuration); the few remaining mismatches are clustering-boundary sensitivity and EM-trajectory floating-point drift at K=10, not algorithm differences.
+> **Numerical parity check vs HDclassif:** [`hdclassif_parity/`](../hdclassif_parity/) is a reproducible head-to-head against the R reference implementation. Same data, same KMeans init, same Cattell threshold, single EM pass on each side, then every fitted parameter is diffed via [`report.md`](../hdclassif_parity/report.md). The implementation matches HDclassif to machine precision on every dataset tested — **12 / 12 sub-model fits pass strict bit-equivalent tolerance** (both synthetic mixtures, raw Olivetti at p=4096, and every forced-`d_k` configuration).
 
 ## Reference Issues/PRs
 

@@ -317,7 +317,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         before ``max_iter`` for the best initialisation.
     n_features_in_ : int
         Number of features seen at fit time.
-    _geometric_model_ : str
+    geometric_model_ : str
         Canonical 3-letter geometric code resolved from ``model`` and
         the per-axis kwargs. Read this attribute (not ``self.model``)
         in user code that depends on the chosen sub-model.
@@ -400,7 +400,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
 
         Strict: when both ``model=`` and per-axis kwargs are set, they
         must agree on every axis they both specify; otherwise raise.
-        No silent override. Sets ``self._geometric_model_``.
+        No silent override. Sets ``self.geometric_model_``.
         """
         has_model = self.model is not None
         has_kwargs = any(v is not None
@@ -483,7 +483,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
                 f"HDDC sub-models. In particular, signal='common_axis' "
                 f"(C) requires dim='equal' (E)."
             )
-        self._geometric_model_ = code
+        self.geometric_model_ = code
 
     # ------------------------------------------------------------------ #
     # Parameter count - driven by the geometric model code, per Table 1
@@ -511,7 +511,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         rho = K * p + (K - 1)
         tau_bar = float(np.sum(d_k * (p - (d_k + 1.0) / 2.0)))
 
-        m = self._geometric_model_
+        m = self.geometric_model_
 
         # Free-d sub-models (last letter V): use tau_bar directly.
         if m == "AVV":
@@ -622,7 +622,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         d : int or None
             Forced common signal dim if computed, else ``None``.
         """
-        _, _, d_axis = self._geometric_model_
+        _, _, d_axis = self.geometric_model_
         # Not a tied-d model, or user forced d: nothing to do.
         if d_axis != "E" or self.signal_dim is not None:
             return None
@@ -649,7 +649,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
     def _apply_model_constraints(self) -> None:
         """Project parameters onto the resolved sub-model's constraints.
 
-        Reads ``self._geometric_model_`` (3-letter code). Each letter
+        Reads ``self.geometric_model_`` (3-letter code). Each letter
         triggers one of the constraint sub-steps.
 
         Ordering matters: ``d`` is collapsed first so the noise step
@@ -659,7 +659,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         full noise subspace dimension), then ties it across clusters
         if ``noise == "E"``.
         """
-        s, n, d = self._geometric_model_
+        s, n, d = self.geometric_model_
         p = self.n_features_in_
 
         # 1) signal dimension regime — must run first so the noise
@@ -1000,7 +1000,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
             if ``n_components * min_cluster_size > n_samples``.
         """
         self._validate_params()
-        # Resolves model + per-axis kwargs to self._geometric_model_,
+        # Resolves model + per-axis kwargs to self.geometric_model_,
         # raising on conflict, unknown spelling, or mclust code.
         self._resolve_model()
         X = validate_data(self, X, dtype=np.float64, ensure_min_samples=2)
