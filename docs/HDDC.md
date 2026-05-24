@@ -236,7 +236,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
                                          #    has 'equal' dim, i.e. ends
                                          #    in E)
         # ----- EM controls -----
-        tol=1e-3, max_iter=100, n_init=1,
+        tol=1e-3, max_iter=300, n_init=10,
         init_params="kmeans",
         min_cluster_size=5,
         random_state=None, verbose=False,

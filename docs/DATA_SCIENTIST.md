@@ -87,7 +87,7 @@ MODELS = ("akj_bk_Qk_dk", "akj_b_Qk_dk", "ak_bk_Qk_dk",
 best = None
 for K, m in itertools.product(range(2, 11), MODELS):
     hgmm = HighDimensionalGaussianMixture(
-        n_components=K, model=m, random_state=0, n_init=2,
+        n_components=K, model=m, random_state=0,  # n_init defaults to 10
     ).fit(X)
     score = hgmm.icl(X)
     if best is None or score < best[0]:

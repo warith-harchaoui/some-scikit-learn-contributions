@@ -56,7 +56,8 @@ from sklearn.mixture import HighDimensionalGaussianMixture
 hgmm = HighDimensionalGaussianMixture(
     n_components=10,
     model="akj_bk_Qk_dk",    # most general; 13 other strings supported
-    n_init=5,                # ≥5 inits keeps EM out of bad local optima
+    # n_init defaults to 10 (KMeans++ exploration budget),
+    # max_iter to 300, cattell_threshold to 0.5
     random_state=0,
 ).fit(X)
 
