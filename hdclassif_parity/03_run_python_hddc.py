@@ -221,7 +221,7 @@ def fit_one(
 
     try:
         fit = HighDimensionalGaussianMixture(**kwargs).fit(X)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         # We log+skip rather than raise so a single ill-conditioned
         # sub-model doesn't block the whole sweep.
         print(f"  FAILED: {type(exc).__name__}: {exc}")

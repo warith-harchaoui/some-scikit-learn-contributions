@@ -97,7 +97,7 @@ def _ensure_montserrat() -> bool:
     """
     try:
         from matplotlib import font_manager
-    except Exception:                                    # noqa: BLE001
+    except Exception:
         return False
     os.makedirs(_FONT_CACHE_DIR, exist_ok=True)
     any_added = False
@@ -107,19 +107,19 @@ def _ensure_montserrat() -> bool:
             try:
                 import urllib.request
                 urllib.request.urlretrieve(url, local)
-            except Exception:                            # noqa: BLE001
+            except Exception:
                 continue
         try:
             font_manager.fontManager.addfont(local)
             any_added = True
-        except Exception:                                # noqa: BLE001
+        except Exception:
             continue
     if any_added:
         # Bust the font_manager's font-name cache so ``Montserrat``
         # resolves on the next ``rcParams`` lookup.
         try:
             font_manager._load_fontmanager(try_read_cache=False)  # type: ignore[attr-defined]
-        except Exception:                                # noqa: BLE001
+        except Exception:
             pass
     # Final check: did matplotlib actually recognise "Montserrat"?
     families = {f.name for f in font_manager.fontManager.ttflist}
@@ -390,11 +390,18 @@ def entropy_psnc(entropy, *, n_samples: int, k_star: int):
 
 
 __all__ = [
-    "PALETTE", "ROLE",
-    "CMAP_PURPLE", "CMAP_BLUE", "CMAP_YELLOW",
-    "use_house_style",
-    "annotate_choice", "style_legend", "soften_yticks",
+    "CMAP_BLUE",
+    "CMAP_PURPLE",
+    "CMAP_YELLOW",
+    "PALETTE",
+    "PSNC_YLABEL",
+    "ROLE",
+    "annotate_choice",
+    "draw_psnc_anchors",
+    "entropy_psnc",
+    "per_sample_nats_criterion",
     "round_bar_corners",
-    "per_sample_nats_criterion", "entropy_psnc",
-    "PSNC_YLABEL", "draw_psnc_anchors",
+    "soften_yticks",
+    "style_legend",
+    "use_house_style",
 ]

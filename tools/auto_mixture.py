@@ -72,7 +72,7 @@ HDDC_MODELS = (
 # lines of code, one source of truth. Delete the import + alias once
 # the ``pr_gmm_icl`` PR lands and ``gmm.icl(X)`` is upstream.
 sys.path.insert(0, os.path.join(_CONTRIB, "figures"))
-from _icl_compat import icl_gmm as _icl_gmm  # noqa: E402
+from _icl_compat import icl_gmm as _icl_gmm
 
 
 def _icl_of(fit, X: np.ndarray) -> float:
@@ -234,7 +234,7 @@ def auto_select_mixture(
                 n_clusters=K, init="k-means++",
                 n_init=max(n_init, 1), random_state=random_state,
             ).fit(X)
-        except Exception as exc:                    # noqa: BLE001
+        except Exception as exc:
             if verbose:
                 log.info(f"  KMeans K={K} FAILED: "
                       f"{type(exc).__name__}: {exc}")
@@ -246,7 +246,7 @@ def auto_select_mixture(
         for family, make in families:
             try:
                 fit = make(K, labels, centroids)
-            except Exception as exc:                # noqa: BLE001
+            except Exception as exc:
                 if verbose:
                     log.info(f"  {family} K={K} FAILED: "
                           f"{type(exc).__name__}: {exc}")

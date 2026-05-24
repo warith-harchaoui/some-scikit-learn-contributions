@@ -33,10 +33,10 @@ References
 # the imports below are kept only so this file is lint-clean in
 # isolation. They are duplicates upstream — drop when copying.
 
-import math  # noqa: F401 — present upstream; here for standalone lint.
-import numpy as np  # noqa: F401
-from scipy.special import xlogy  # noqa: F401
-from sklearn.utils.validation import check_is_fitted, validate_data  # noqa: F401
+import math
+import numpy as np
+from scipy.special import xlogy
+from sklearn.utils.validation import check_is_fitted, validate_data
 
 
 def icl(self, X):

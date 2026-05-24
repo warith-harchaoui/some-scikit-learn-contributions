@@ -14,8 +14,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import figures_icl                                              # noqa: E402
-import figures_hddc                                             # noqa: E402
+import figures_icl
+import figures_hddc
 
 log = logging.getLogger("make_all")
 

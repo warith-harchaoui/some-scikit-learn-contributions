@@ -24,8 +24,9 @@ The script writes three datasets:
 * ``synth_lowdim``  — small synthetic mixture, easy regime.
 * ``synth_highdim`` — synthetic ``n << p`` mixture, the regime HDDC
                        was designed for.
-* ``olivetti``      — first 10 people from ``fetch_olivetti_faces``: n=100, p=4096. Tests HDDC on its
-                       intended ``n << p`` regime with real input.
+* ``olivetti``      — first 10 people from ``fetch_olivetti_faces``:
+                       n=100, p=4096. Tests HDDC on its intended
+                       ``n << p`` regime with real input.
 
 Examples
 --------

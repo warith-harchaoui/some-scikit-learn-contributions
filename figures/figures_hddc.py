@@ -26,11 +26,11 @@ log = logging.getLogger("figures_hddc")
 
 # Local style + shared ICL-on-GMM compat helper.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _style import (                                            # noqa: E402
+from _style import (
     PALETTE, ROLE, CMAP_PURPLE,
     use_house_style,
 )
-from _icl_compat import icl_gmm as _icl_for_gmm                 # noqa: E402
+from _icl_compat import icl_gmm as _icl_for_gmm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTRIB = os.path.dirname(HERE)
@@ -562,7 +562,7 @@ def make_fig_hddc_vs_gmm_cm() -> str:
     for K in K_grid:
         try:
             f = _fit_hddc(K)
-        except Exception:                                       # noqa: BLE001
+        except Exception:
             continue
         v = f.icl(X)
         if v < best:
@@ -623,7 +623,7 @@ def _select_K(estimator_fn, K_grid, X):
     for K in K_grid:
         try:
             fit = estimator_fn(K)
-        except Exception:                       # noqa: BLE001
+        except Exception:
             continue
         icl = fit.icl(X) if hasattr(fit, "icl") else _icl_gmm(fit, X)
         if icl < best_icl:
@@ -657,7 +657,7 @@ def _select_K_across_families(named_estimator_fns, K_grid, X):
         for K in K_grid:
             try:
                 fit = fn(K)
-            except Exception:                   # noqa: BLE001
+            except Exception:
                 continue
             icl = fit.icl(X) if hasattr(fit, "icl") else _icl_gmm(fit, X)
             if icl < best_icl:
