@@ -48,8 +48,6 @@ narrative discussion.
 | --- | ---: | ---: | ---: | --- |
 | `synth_lowdim` | 600 | 5 | 3 | benign baseline — exact agreement is the bar |
 | `synth_highdim` | 200 | 30 | 4 | structured low-rank cov, `n < 10·p` |
-| `iris` | 150 | 4 | 3 | classic small real benchmark |
-| `digits` | 1797 | 64 | 10 | the PR's real-world demo dataset |
 | `olivetti` | 100 | 4096 | 10 | the `n << p` regime, raw pixels (no PCA) — tests the SVD-of-data-matrix path |
 
 Olivetti is deliberately **not** PCA-projected: PCA would conflate

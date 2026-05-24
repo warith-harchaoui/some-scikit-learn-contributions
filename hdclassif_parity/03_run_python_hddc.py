@@ -30,8 +30,8 @@ Examples
 After running ``01_prepare_data.py``:
 
     $ python hdclassif_parity/03_run_python_hddc.py
-    PY : iris            AVV
-    PY : iris            AEE
+    PY : synth_lowdim    AVV
+    PY : synth_lowdim    AEE
     ...
     Python parity dump complete -> .../hdclassif_parity/py_out
 
@@ -190,7 +190,7 @@ def fit_one(
     out_dir : str
         Directory under which CSVs are written. Filenames are
         ``<name>_<tag>_<field>.csv`` where ``<tag>`` reflects any
-        forced ``d_k`` (e.g. ``iris_AEE_d2_bic.csv``).
+        forced ``d_k`` (e.g. ``synth_lowdim_AEE_d2_bic.csv``).
     """
     code, signal_dim, tag = _resolve_model_spec(spec)
     out_prefix = os.path.join(out_dir, f"{name}_{tag}_")

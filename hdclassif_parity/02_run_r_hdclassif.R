@@ -129,7 +129,7 @@ resolve_model_spec <- function(spec) {
 #   reported but do not halt the pipeline (a single failing sub-model
 #   should not block parity for the others).
 #
-# @param name (character) dataset name prefix (e.g. "iris").
+# @param name (character) dataset name prefix (e.g. "synth_lowdim").
 # @param spec (resolved model spec from resolve_model_spec()).
 # @param X    (matrix, n x p) observations.
 # @param init (integer, n)    1-indexed initial cluster labels.

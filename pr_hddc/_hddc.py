@@ -869,16 +869,36 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
     # ------------------------------------------------------------------ #
 
     def fit(self, X, y=None):
-        """Fit the HDDC model on X.
+        """Fit the HDDC model on ``X``.
+
+        Resolves the requested sub-model (geometric code / paper
+        bracket / per-axis kwargs), validates input, runs ``n_init``
+        EM trials from the configured initialiser, and keeps the
+        fit with the highest log-likelihood.
 
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
+            Training data. Will be coerced to ``float64``.
         y : Ignored
+            Present for sklearn API compatibility.
 
         Returns
         -------
-        self
+        self : object
+            The fitted estimator. Fitted attributes are
+            ``weights_``, ``means_``, ``eigenvalues_``,
+            ``eigenvectors_``, ``signal_dims_``,
+            ``noise_variances_``, ``responsibilities_``,
+            ``labels_``, ``log_likelihood_``, and
+            ``_geometric_model_``.
+
+        Raises
+        ------
+        ValueError
+            If the sub-model spec resolves with a conflict, an
+            unknown code (including any mclust covariance code), or
+            if ``n_components * min_cluster_size > n_samples``.
         """
         self._validate_params()
         # Resolves model + per-axis kwargs to self._geometric_model_,
@@ -1002,11 +1022,39 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         return validate_data(self, X, dtype=np.float64, reset=False)
 
     def predict(self, X):
+        """Predict the hard cluster assignment for each sample.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Samples to assign. Must have the same number of features
+            as the data passed to :meth:`fit`.
+
+        Returns
+        -------
+        labels : ndarray of shape (n_samples,)
+            Index of the maximum-posterior component per sample, in
+            ``[0, n_components)``. Equivalent to
+            ``predict_proba(X).argmax(axis=1)``.
+        """
         self._check_fitted()
         X = self._validate_X_predict(X)
         return self.predict_proba(X).argmax(axis=1)
 
     def predict_proba(self, X):
+        """Posterior cluster responsibilities for each sample.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Samples to score.
+
+        Returns
+        -------
+        resp : ndarray of shape (n_samples, n_components)
+            Soft cluster assignment ``tau_{ik} = P(z_i = k | x_i)``.
+            Each row sums to 1.
+        """
         self._check_fitted()
         X = self._validate_X_predict(X)
         n = X.shape[0]
@@ -1018,6 +1066,19 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         return np.exp(log_resp)
 
     def score_samples(self, X):
+        """Log-density of the fitted mixture, per sample.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Samples to evaluate.
+
+        Returns
+        -------
+        log_prob : ndarray of shape (n_samples,)
+            ``log p(x_i)`` under the fitted mixture, with the HDDC
+            per-component covariance parameterisation.
+        """
         self._check_fitted()
         X = self._validate_X_predict(X)
         n = X.shape[0]
@@ -1028,9 +1089,39 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         return logsumexp(log_resp, axis=1)
 
     def score(self, X, y=None):
+        """Mean log-density of ``X`` under the fitted mixture.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Samples to score.
+        y : Ignored
+            Present for sklearn API compatibility.
+
+        Returns
+        -------
+        avg_log_prob : float
+            ``mean(score_samples(X))``. Higher is better.
+        """
         return float(np.mean(self.score_samples(X)))
 
     def fit_predict(self, X, y=None):
+        """Fit the model and return hard cluster labels for ``X``.
+
+        Convenience method equivalent to ``self.fit(X).labels_``.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data.
+        y : Ignored
+            Present for sklearn API compatibility.
+
+        Returns
+        -------
+        labels : ndarray of shape (n_samples,)
+            Hard cluster assignment per training sample.
+        """
         return self.fit(X, y).labels_
 
     # ------------------------------------------------------------------ #
@@ -1038,18 +1129,53 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
     # ------------------------------------------------------------------ #
 
     def bic(self, X):
+        """Bayesian Information Criterion (lower-is-better).
+
+        ``BIC = nu(K, model) * log n - 2 * log L(X)`` with ``nu``
+        the model-specific free-parameter count (see
+        :meth:`_n_parameters` and ``docs/HDDC.md`` §2) and
+        ``log L`` the sample log-likelihood under the fitted
+        mixture. Matches the sign convention of
+        :meth:`sklearn.mixture.GaussianMixture.bic`.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Data the BIC is evaluated on. Typically the training
+            data, but any ``X`` with the same number of features
+            works.
+
+        Returns
+        -------
+        bic : float
+            BIC value (lower is better).
+        """
         self._check_fitted()
         n_params = self._n_parameters()
         n = X.shape[0]
         return -2.0 * self.score_samples(X).sum() + n_params * math.log(n)
 
     def icl(self, X):
-        """ICL = BIC + 2 * H, where H = -sum_i sum_k tau_ik log tau_ik.
+        """Integrated Completed Likelihood (lower-is-better).
 
-        Matches the convention of
-        :meth:`sklearn.mixture.GaussianMixture.icl`. Uses ``xlogy`` so
-        zero responsibilities contribute exactly zero (no eps clip), and
-        ICL reduces to BIC on a hard partition.
+        ``ICL = BIC + 2 * H`` where
+        ``H = -sum_i sum_k tau_{ik} log tau_{ik}`` is the entropy of
+        the posterior responsibilities at the fitted parameters.
+        Matches the sign convention of the ICL method added to
+        :class:`sklearn.mixture.GaussianMixture` by the companion
+        PR. Uses :func:`scipy.special.xlogy` so zero responsibilities
+        contribute exactly zero (no ``eps`` clip), and ICL reduces
+        to BIC on a hard partition.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Data the ICL is evaluated on.
+
+        Returns
+        -------
+        icl : float
+            ICL value (lower is better, ``>= bic(X)``).
         """
         self._check_fitted()
         bic = self.bic(X)

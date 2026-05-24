@@ -19,13 +19,11 @@ Per-dataset artefacts under ``data/``:
                                sub-model codes to fit, and the RNG seed
                                so the run is reproducible.
 
-The script writes five datasets:
+The script writes three datasets:
 
 * ``synth_lowdim``  — small synthetic mixture, easy regime.
 * ``synth_highdim`` — synthetic ``n << p`` mixture, the regime HDDC
                        was designed for.
-* ``iris``          — the classic 150x4 sanity check.
-* ``digits``        — ``load_digits``: 1797 samples, 64 features.
 * ``olivetti``      — first 10 people from ``fetch_olivetti_faces``,
                        **no PCA**: n=100, p=4096. Tests HDDC on its
                        intended ``n << p`` regime with real input.
@@ -62,7 +60,7 @@ from typing import Iterable, Optional, Sequence, Tuple
 import numpy as np
 from numpy.random import Generator
 from sklearn.cluster import KMeans
-from sklearn.datasets import fetch_olivetti_faces, load_digits, load_iris
+from sklearn.datasets import fetch_olivetti_faces
 
 
 # ---------------------------------------------------------------------------
@@ -310,12 +308,11 @@ def _load_olivetti_raw(n_people: int = 10) -> np.ndarray:
 
 
 def main() -> None:
-    """Write all five parity datasets to ``data/``.
+    """Write all three parity datasets to ``data/``.
 
-    Two synthetic mixtures (easy + ``n << p``), iris, digits, and
-    raw Olivetti faces (no PCA). Together they cover the regimes
-    the PR's empirical arguments lean on, with no preprocessing
-    that would conflate two algorithms in the parity diff.
+    Two synthetic mixtures (easy + ``n << p``) and raw Olivetti
+    faces (no PCA). Each is a setting where bit-equivalent
+    agreement with HDclassif is the right bar.
     """
     print("Writing parity-check datasets to:", DATA)
 
@@ -328,15 +325,7 @@ def main() -> None:
     X, _ = _synth_mixture(n_per=50, p=30, K=4, signal_dim=4, rng=2)
     _write_dataset("synth_highdim", X, K=4)
 
-    # 3. Iris — small real benchmark, exhaustively studied.
-    iris = load_iris()
-    _write_dataset("iris", iris.data.astype(float), K=3)
-
-    # 4. Digits — sklearn standard 1797x64 dataset, 10 classes.
-    digits = load_digits()
-    _write_dataset("digits", digits.data.astype(float), K=10)
-
-    # 5. Raw Olivetti faces, 10 people, no PCA: n=100, p=4096.
+    # 3. Raw Olivetti faces, 10 people, no PCA: n=100, p=4096.
     #    Tests HDDC in its intended n << p regime on real input.
     X_oliv = _load_olivetti_raw(n_people=10)
     _write_dataset("olivetti", X_oliv, K=10)

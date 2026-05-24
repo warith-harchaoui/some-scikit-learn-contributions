@@ -132,8 +132,8 @@ Drop `model=` and use three separate keyword arguments.
 ```python
 HighDimensionalGaussianMixture(
     signal="anisotropic",   # or "isotropic", "common_axis", "uniform"
-    noise="free",           # or "tied"
-    dim="free",             # or "tied"
+    noise="varying",        # or "equal"
+    dim="varying",          # or "equal"
 )
 ```
 
@@ -460,7 +460,7 @@ branch per row of Table 1. The full mapping:
 | `a_bk_Qk_dk`   | `[a    b_k Q_k d_k]` | `rho + tau_bar + 2K + 1` |
 | `a_b_Qk_dk`    | `[a    b   Q_k d_k]` | `rho + tau_bar + K + 2` |
 | `akj_bk_Qk_d`  | `[a_kj b_k Q_k d]`   | `rho + K(tau + d + 1) + 1` |
-| `ajk_bk_Qk_d`  | `[a_j  b_k Q_k d]`   | `rho + K(tau + 1) + d + 1` |
+| `aj_bk_Qk_d`   | `[a_j  b_k Q_k d]`   | `rho + K(tau + 1) + d + 1` |
 | `akj_b_Qk_d`   | `[a_kj b   Q_k d]`   | `rho + K(tau + d) + 2` |
 | `aj_b_Qk_d`    | `[a_j  b   Q_k d]`   | `rho + K tau + d + 2` |
 | `ak_bk_Qk_d`   | `[a_k  b_k Q_k d]`   | `rho + K(tau + 2) + 1` |
@@ -472,8 +472,11 @@ with `tau = d (p - (d + 1) / 2)` for the common-`d` rows.
 
 ### 2.3 Regression test
 
-`test_hddc_parameter_count_general_model` in `pr_hddc/test_hddc.py`
-checks the `[a_kj b Q_k d]` row at `K = 4`, `p = 100`, `d = 10`:
+`test_hddc_parameter_count_table1_AVE` and
+`test_hddc_parameter_count_table1_AEE` in `pr_hddc/test_hddc.py`
+check the `[a_kj b_k Q_k d]` and `[a_kj b Q_k d]` rows at
+`K = 4`, `p = 100`, `d = 10` (Bouveyron Table 1 values `4228` and
+`4225` respectively). The `[a_kj b Q_k d]` derivation:
 
 ```
 rho      = 4 * 100 + 3                       = 403
@@ -613,7 +616,7 @@ ICL. A more permissive `threshold` (larger value) yields *larger*
 `d_k`, *more* parameters, and therefore a *stronger* penalty in both
 criteria. Concretely:
 
-- For the most general sub-model `[a_kj b_k Q_k d_k]` ("AFF"),
+- For the most general sub-model `[a_kj b_k Q_k d_k]` (`AVV`),
   increasing `d_k` by one adds approximately `p - d_k` parameters to
   the count (the new orientation column plus the new eigenvalue).
 - For `p = 100`, `K = 4`, that is roughly 90 parameters per `+1` to
@@ -629,15 +632,18 @@ production work, treat it as a third tuning axis next to `K` and
 #### 3.5.1 Flat scree plot
 
 If the empirical covariance is near-isotropic (true within-cluster
-covariance is `sigma^2 I`), all eigenvalues are similar and `max
-Delta` is tiny relative to the noise. The current rule returns
-`d_k = max(1, p - 1)`, which is the worst case: it claims that
-*almost all* axes are signal. This inflates `_n_parameters` and
-biases model selection toward simpler `K`.
+covariance is `sigma^2 I`), all eigenvalues are similar and no
+normalised drop exceeds `threshold`. The rule then returns
+`d_k = 1`, treating *almost all* axes as noise — the cluster is
+parameterised as a single signal direction plus a `(p − 1)`-dim
+isotropic noise halo. This is the safer failure mode (under-fits
+the signal subspace rather than over-fits it) but can still bias
+the BIC ranking against more elaborate sub-models.
 
-Mitigation: pass `signal_dim=d` with a small `d` to force a common,
-low-dimensional subspace, and use the `*_d` family (e.g. "AFT" /
-`akj_bk_Qk_d`).
+Mitigation: lower `cattell_threshold` (e.g. 0.2 to match HDclassif's
+default) so smaller normalised drops also trigger the elbow, or
+pass `signal_dim=d` to force a chosen `d` on an `*E`-dim sub-model
+(e.g. `model="AVE"` / `akj_bk_Qk_d`).
 
 #### 3.5.2 A single huge eigenvalue followed by a gentle slope
 

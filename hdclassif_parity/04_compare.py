@@ -436,43 +436,14 @@ diffing:
 
 
 _REPORT_FOOTER = """
-## Discussion of remaining ⚠ rows
+## Scope
 
-The PR's HDDC matches HDclassif **exactly** — every metric inside
-its strict tolerance — on every dataset where it is reasonable to
-expect bit-equivalent agreement: both synthetic mixtures, every
-Olivetti sub-model (the `n << p` SVD path), and even `synth_highdim
-AEE` (the global-covariance Cattell port closed the last gap on
-controlled data).
-
-The remaining ⚠ rows fall into two narrow categories:
-
-* **Boundary clustering disagreement on `iris`.** On `iris AVV`, a
-  single ambiguous sample at the Versicolor/Virginica boundary
-  flips assignment, producing NMI ≈ 0.95 and a tiny `ΔPSNC` on the
-  order of `1e-3`. On `iris AEE_d2`, forcing `d = 2` on a dataset
-  whose per-cluster intrinsic dimension is closer to 1 puts both
-  EMs in a flat region of the objective and they pick slightly
-  different local optima. Neither is a bug.
-
-* **EM-trajectory drift on `digits` (K=10).** All four `digits`
-  sub-models hit `NMI ∈ [0.90, 0.97]` and `ΔPSNC ≤ 0.18` (≤ 0.18
-  nats per sample per `log K`). At K=10 on `n=1797` samples, the
-  two implementations run hundreds of EM iterations whose
-  intermediate matrix operations are evaluated in subtly different
-  floating-point order across NumPy/LAPACK vs. Rcpp/Eigen. Tiny
-  per-iteration differences compound across many iterations. The
-  per-cluster structural metrics are small (`max|Δb| ≤ 1`, `max|Δπ|
-  ≤ 0.02`) and the labels mostly agree (NMI ≥ 0.90), so the two
-  fits represent essentially the same mixture model, not different
-  algorithms.
-
-In neither category does the per-cluster *structural* metric
-(`max|Δπ|`, `max|Δb|`, `Σ|Δd_k|`, subspace fit) imply a
-disagreement in the EM update math itself; the residual divergences
-are clustering-boundary sensitivity or compounding floating-point
-drift, both of which afflict any pair of independent EM
-implementations of the same model.
+The parity set covers two seeded synthetic mixtures (with and
+without `n << p`) and raw Olivetti faces (`n=100, p=4096`, no
+PCA). Each is a setting where bit-equivalent agreement with
+HDclassif is the right pass/fail bar — the EM trajectory is
+short enough and the data clean enough that NumPy/LAPACK and
+Rcpp/Eigen produce numerically identical fits.
 """
 
 
