@@ -41,6 +41,20 @@ _icl_gmm = _icl_for_gmm
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _gmm_with_K(X, K, covariance_type, reg_covar, n_init, max_iter, seed=0):
+    """Convenience builder: fit ``GaussianMixture`` with the given knobs.
+
+    Used by the galaxies demo to keep the per-K fit a single
+    readable line.
+    """
+    return GaussianMixture(
+        n_components=K, covariance_type=covariance_type,
+        init_params="kmeans",
+        random_state=seed, n_init=n_init, max_iter=max_iter,
+        reg_covar=reg_covar,
+    ).fit(X)
+
+
 def _student_mixture_1d(true_K=3, n_per=4000, df=3, seed=42, sep=18.0):
     """Draw a 1-D mixture of ``true_K`` location-shifted Student-``t``
     components with ``df`` degrees of freedom and ``n_per`` samples per
