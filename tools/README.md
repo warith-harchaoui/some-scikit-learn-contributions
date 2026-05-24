@@ -185,7 +185,7 @@ the data's effective dimensionality:
 | --- | --- | --- |
 | 1D synthetic Student mixture | $n=24{,}000$, $p=1$, $K^{\star}=3$ | `GMM (full)` $K \approx K^{\star}$ |
 | `load_digits` | $n=1797$, $p=64$, $K^{\star}=10$ | `GMM (diag)` or `HDDC (AVV)` near $K^{\star}$ |
-| Olivetti faces (PCA→99) | $n=100$, $p=99$, $K^{\star}=10$ | `HDDC (AVV)` near $K^{\star}$ |
+| Olivetti faces (raw) | $n=100$, $p=4096$, $K^{\star}=10$ | `HDDC (AVV)` near $K^{\star}$ |
 
 Roughly: as $p / n$ grows, the winning family migrates from
 full-$\Sigma$ GMM to diagonal GMM to one of the HDDC sub-models.

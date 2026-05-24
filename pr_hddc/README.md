@@ -126,17 +126,12 @@ a sweep. Both estimators receive the same EM seeds, the same KMeans
 init, and the same K-grid; the only difference is the covariance
 parameterization.
 
-#### Olivetti faces — the `n ≤ p` regime
+#### Olivetti faces — the `n << p` regime
 
-10 people from `fetch_olivetti_faces`, raw 4096-dim pixels projected
-to 99 features via PCA: `n = 100, p ≈ 99, K_true = 10`. This is the
-regime that motivates HDDC. **AVV HDDC recovers K = 10 exactly
-under ICL** (NMI 0.62, ACC 0.53); **diagonal GMM ICL-collapses to
-K = 4** (NMI 0.28, ACC 0.30) because it has nowhere to put per-cluster
-feature correlation, so it pays for an extra cluster more than it can
-earn back in fit. Even at K = K_true (oracle), the two are
-comparable on metrics — the parsimony gap is in model *selection*,
-not in fit.
+10 people from `fetch_olivetti_faces` at **raw** 4096-dim pixels:
+`n = 100, p = 4096, K_true = 10`. No PCA — pre-projecting would
+conflate PCA and HDDC in the comparison; the SVD path in the M-step
+makes the raw fit tractable. This is the regime that motivates HDDC.
 
 ![Olivetti, K selected by ICL: GMM(diag) collapses to K=4 and merges true classes; AVV HDDC recovers K_true=10.](../figures/fig_real_hddc_olivetti_cm_icl.png)
 ![Olivetti, K known (oracle K=10): GMM and HDDC are comparable per-cluster — the gap shows up in K-selection, not fit.](../figures/fig_real_hddc_olivetti_cm_known.png)
