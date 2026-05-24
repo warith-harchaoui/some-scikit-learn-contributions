@@ -26,14 +26,15 @@ References
 
 # --- INSERT AFTER ``def bic(self, X)`` IN GaussianMixture ------------------
 #
-# ``numpy`` is already imported as ``np`` at the top of
-# ``sklearn/mixture/_gaussian_mixture.py`` upstream, so copy only the
-# ``def icl(self, X)`` block below. The import line that follows is
-# kept solely so this file is lint-clean when scanned in isolation.
+# Upstream ``sklearn/mixture/_gaussian_mixture.py`` already imports
+# ``numpy as np``, ``math``, ``check_is_fitted``, and ``validate_data``;
+# the imports below are kept only so this file is lint-clean in
+# isolation. They are duplicates upstream — drop when copying.
 
-import numpy as np  # noqa: F401 — present upstream; here for standalone lint.
-from scipy.special import xlogy  # noqa: F401 — same rationale as numpy above.
-from sklearn.utils.validation import check_is_fitted  # noqa: F401 — same.
+import math  # noqa: F401 — present upstream; here for standalone lint.
+import numpy as np  # noqa: F401
+from scipy.special import xlogy  # noqa: F401
+from sklearn.utils.validation import check_is_fitted, validate_data  # noqa: F401
 
 
 def icl(self, X):
@@ -84,18 +85,26 @@ def icl(self, X):
        completed likelihood." IEEE TPAMI, 22(7), 719-725.
        <10.1109/34.865189>`
     """
-    # Explicit fitted check so users get NotFittedError before
-    # ``_estimate_log_prob_resp`` would otherwise raise AttributeError
-    # on the unset ``weights_`` / ``means_`` / covariance attributes.
+    # Single validated pass through the data, mirroring the
+    # ``score_samples`` / ``predict_proba`` idiom in this module:
+    # ``check_is_fitted`` + ``validate_data(..., reset=False)`` then
+    # ``_estimate_log_prob_resp`` once. We do **not** call
+    # ``self.bic(X)`` here — that would re-validate ``X`` and re-call
+    # ``_estimate_log_prob_resp``; the inline form computes BIC
+    # from ``log_prob_norm.sum()`` directly.
     check_is_fitted(self)
-    # ``_estimate_log_prob_resp`` returns (log p(X), log responsibilities);
-    # recomputed cheaply on demand here, mirroring how ``bic`` recomputes
-    # ``score`` on demand (no caching in the upstream class).
-    _, log_resp = self._estimate_log_prob_resp(X)
-    # xlogy(0, 0) = 0 by definition, so zero responsibilities contribute
-    # exactly zero with no eps clip and no RuntimeWarning.
+    X = validate_data(self, X, reset=False)
+    log_prob_norm, log_resp = self._estimate_log_prob_resp(X)
+    n_samples = X.shape[0]
+    bic_value = (
+        -2.0 * log_prob_norm.sum()
+        + self._n_parameters() * math.log(n_samples)
+    )
+    # ``xlogy(0, 0) = 0`` by definition, so zero responsibilities
+    # contribute exactly zero with no ``eps`` clip and no
+    # ``RuntimeWarning`` — ICL reduces to BIC on a hard partition.
     resp = np.exp(log_resp)
     entropy = -xlogy(resp, resp).sum()
-    return self.bic(X) + 2.0 * entropy
+    return bic_value + 2.0 * entropy
 
 # --- END SNIPPET -----------------------------------------------------------

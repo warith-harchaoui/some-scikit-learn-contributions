@@ -559,11 +559,15 @@ noise floor. This is intentionally permissive: it can pick `d_k` well
 past the first below-threshold dip when a later drop also exceeds the
 threshold.
 
-This is a direct port of the algorithm shipped in the R package
-`HDclassif` ([HDclassif]_). The Python implementation reproduces
-HDclassif fits exactly when the threshold and noise floor are
-matched. See the parity check in `hdclassif_parity/` for the
-numerical evidence.
+The algorithm is **derived from the equations in Bouveyron et al.
+(2007)** and the published behaviour of the R package
+[`HDclassif`](https://CRAN.R-project.org/package=HDclassif).
+**No source code was copied from `HDclassif`** (which is GPL-2);
+`HDclassif` is used only as an external numerical reference in the
+optional parity check under `hdclassif_parity/`. The Python
+implementation reproduces `HDclassif` fits numerically when the
+threshold and noise floor are matched — see the parity check for
+the evidence.
 
 Code in `_hddc.py::_cattell_scree_test` (private; the leading
 underscore signals that the function is an implementation detail,
@@ -679,18 +683,16 @@ automated scree-test variants. We considered each and rejected:
 
 The rule shipped here is **not** one of the four Raiche variants and
 does **not** appear in the peer-reviewed literature on non-graphical
-scree tests. It is a direct port of the algorithm shipped in the
-`HDclassif` R package source code (Berge, Bouveyron & Girard, 2012
-[HDclassif]_) — same normalisation, same `noise.ctrl` floor, same
-"largest eligible index" selection. The accompanying `HDclassif`
-paper mentions the `threshold` parameter and its default but does
-not spell out the algorithm; the `HDclassif` help page documents its
-default (`0.2`) but again not the rule. The `nFactors` R package —
+scree tests. It is **derived from the equations in Bouveyron et al.
+(2007)** and the published behaviour of `HDclassif` (Berge, Bouveyron
+& Girard, 2012 [HDclassif]_) — same normalisation, same
+`noise.ctrl` floor, same "largest eligible index" selection. No
+source code was copied from `HDclassif`. The `nFactors` R package —
 the canonical implementation of Raiche's variants — does *not*
 include this rule.
 
-We keep it for three reasons: (i) bit-equivalent reproducibility
-with `HDclassif` (verified in `hdclassif_parity/`); (ii) it is the
+We keep it for three reasons: (i) numerical reproducibility against
+`HDclassif` (verified in `hdclassif_parity/`); (ii) it is the
 cheapest of the candidates; (iii) it is the only one with a tunable
 sensitivity parameter, which matters because the scree test enters
 BIC and ICL through `_n_parameters` and the practitioner needs a
@@ -699,8 +701,8 @@ knob.
 #### Default threshold
 
 We ship `cattell_threshold=0.5` rather than HDclassif's `0.2`. This
-is a **UX choice that does not change the algorithm**: the rule is
-identical bit-for-bit, only the sensitivity differs. `d(t)` is flat
+is a **UX choice that does not change the algorithm**; only the
+sensitivity differs. `d(t)` is flat
 across `[0.3, 0.8]` whenever the spectrum has a clear signal/noise
 gap, so `0.5` sits in the middle of the invariant plateau and
 empirically selects more reasonable `d_k` on the datasets we

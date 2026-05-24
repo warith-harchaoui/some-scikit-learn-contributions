@@ -3,11 +3,12 @@
 ![On a heavy-tailed Student-t mixture, BIC drifts to spurious components while ICL recovers the true K=3.](../figures/fig_icl_student.png)
 
 ICL is a more conservative model-selection criterion than BIC for Gaussian
-mixtures: simulation studies show it recovers the true number of components
-more reliably than BIC whenever the data has heavier tails than a Gaussian
-(which is most real-world data). Concretely, BIC keeps adding redundant
-Gaussian components to absorb tail mass; ICL's entropy penalty rejects
-them because the resulting cluster assignments are ambiguous.
+mixtures: simulation studies show it tends to recover the true number of
+components more reliably than BIC when the data has heavier tails than a
+Gaussian (common in many real-world settings). Concretely, BIC tends to
+add redundant Gaussian components to absorb tail mass; ICL's entropy
+penalty discounts them because the resulting cluster assignments are
+ambiguous.
 
 ## Reference Issues/PRs
 

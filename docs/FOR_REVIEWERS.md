@@ -23,7 +23,8 @@ with `nu(K)` the number of free parameters and `n` the sample size.
 BIC is consistent under the assumption that the true data-generating
 distribution is in the Gaussian-mixture family. It is **not**
 consistent when that assumption is violated, and in practice the
-deviation is systematic in one direction: BIC overestimates `K`.
+deviation is systematic in one direction: BIC tends to overestimate
+`K`.
 
 The mechanism is mechanical. Suppose the true density `f*` has tails
 heavier than any finite Gaussian mixture with `K` components can
@@ -274,8 +275,8 @@ ICL behaves consistently across the grid because the entropy penalty
 depends only on the responsibilities, not on the covariance
 parameterization. Concretely: on the same Student-mixture experiment
 but in 5D, BIC-selected `(K, model)` pairs are typically larger and
-less parsimonious than ICL-selected ones, and only ICL recovers the
-generating partition.
+less parsimonious than ICL-selected ones, and ICL is more likely to
+recover the generating partition.
 
 The same pattern is visible head-to-head on real high-dimensional
 data. The two side-by-side rectangular confusion matrices below

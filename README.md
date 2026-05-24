@@ -125,13 +125,14 @@ output. Figures land alongside the scripts as PNGs.
 
 scikit-learn ships BIC for selecting the number of components `K`
 in a finite Gaussian mixture. BIC is consistent only when the data
-really is a Gaussian mixture; on heavy-tailed data — which covers
-most real-world distributions — BIC over-counts components, because
-the extra "components" are absorbing the tails. The under-used fix
-(known in the Bayesian and R communities, less so in Python) is
-**ICL** (Biernacki, Celeux & Govaert 2000), which adds an entropy
-penalty on the soft cluster assignments. The first PR
-(`pr_gmm_icl`) makes ICL available next to BIC under the
+really is a Gaussian mixture; on heavy-tailed data — common in many
+real-world settings — BIC can over-count components, because the
+extra "components" absorb the tails rather than identifying real
+clusters. A complementary criterion that addresses this regime
+(well-known in the Bayesian and R communities, less so in Python)
+is **ICL** (Biernacki, Celeux & Govaert 2000), which adds an
+entropy penalty on the soft cluster assignments. The first PR
+(`pr_gmm_icl`) makes ICL available alongside BIC under the
 scikit-learn convention `ICL = BIC + 2·H`, lower is better.
 
 ### The HDDC PR — `GaussianMixture` for `n << p`
