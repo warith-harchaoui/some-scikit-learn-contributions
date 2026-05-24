@@ -159,10 +159,11 @@ def _fmt(x: Optional[float | int], w: int = 10, dec: int = 4) -> str:
 #     PSNC(L) = L / (n · log K*)
 #
 # In those units, PSNC = 0 means perfect prediction, PSNC = 1 means
-# uniform K*-way confusion, and PSNC > 1 means worse than uniform.
-# Crucially, two datasets with very different (n, K) become directly
-# comparable — a ΔPSNC of 0.001 is "10⁻³ nats per sample per log-K
-# unit" regardless of whether n=100 or n=1797.
+# uniform K*-way confusion (i.e. the model is no better than
+# rolling a K-sided die), and PSNC > 1 means worse than uniform.
+# Two datasets with very different (n, K) become directly
+# comparable. We report PSNC as a **percentage** (PSNC × 100) so
+# 100% = uniform-random baseline and 0% = perfect prediction.
 #
 # We apply PSNC to the three scalar fit metrics that diverge in
 # magnitude with (n, p): BIC, loglik, and ICL. The structural
@@ -170,8 +171,10 @@ def _fmt(x: Optional[float | int], w: int = 10, dec: int = 4) -> str:
 # agreement) are already dimensionless and reported as-is.
 
 
-def _psnc(value_in_nats: float, n: int, K: int) -> float:
-    """Per-Sample Nats Criterion.
+def _psnc_pct(value_in_nats: float, n: int, K: int) -> float:
+    """Per-Sample Nats Criterion, reported as a percentage.
+
+    100% = uniform K-way random baseline. 0% = perfect prediction.
 
     Parameters
     ----------
@@ -183,7 +186,7 @@ def _psnc(value_in_nats: float, n: int, K: int) -> float:
     K : int
         Reference outcome count (used for log K* normalisation).
     """
-    return float(value_in_nats / (n * math.log(max(K, 2))))
+    return float(100.0 * value_in_nats / (n * math.log(max(K, 2))))
 
 
 # ---------------------------------------------------------------------------
@@ -191,17 +194,17 @@ def _psnc(value_in_nats: float, n: int, K: int) -> float:
 # ---------------------------------------------------------------------------
 # Tight by design: a passing row is essentially "bit-equivalent up
 # to numerical noise and label permutation". The PSNC tolerances
-# are sub-percent so that even tiny systematic biases surface.
-_PSNC_BIC_TOL: float = 1e-3      # 1‰ of one nat per sample per log K
-_PSNC_LL_TOL: float = 1e-3
+# are sub-tenth-of-a-percent so even tiny systematic biases surface.
+_PSNC_BIC_TOL_PCT: float = 0.1   # 0.1% of the uniform-random baseline
+_PSNC_LL_TOL_PCT: float = 0.1
 _PARAM_TOL: float = 1e-2
 _SUBSPACE_TOL_DEG: float = 5.0
 _NMI_TOL: float = 0.95
 
 
 def _pass_thresholds(
-    d_psnc_bic: float,
-    d_psnc_ll: float,
+    d_psnc_bic_pct: float,
+    d_psnc_ll_pct: float,
     d_np: int,
     d_w: float,
     d_b: float,
@@ -211,8 +214,8 @@ def _pass_thresholds(
 ) -> bool:
     """Return True iff every parity metric is within tolerance."""
     return (
-        abs(d_psnc_bic) < _PSNC_BIC_TOL
-        and abs(d_psnc_ll) < _PSNC_LL_TOL
+        abs(d_psnc_bic_pct) < _PSNC_BIC_TOL_PCT
+        and abs(d_psnc_ll_pct) < _PSNC_LL_TOL_PCT
         and d_np == 0
         and d_w < _PARAM_TOL
         and d_b < _PARAM_TOL
@@ -272,12 +275,13 @@ def _compare_one(
     np_r = int(_scalar(_load(r_pref + "n_parameters.csv")))
     np_p = int(_scalar(_load(p_pref + "n_parameters.csv")))
 
-    # Normalise scalar diffs to PSNC units (per-sample nats per log K).
+    # Normalise scalar diffs to PSNC units (per-sample nats per log K),
+    # reported as a percentage of the uniform-random baseline.
     # BIC is in deviance (2·nats); halve before PSNC. Log-likelihood
     # is already in nats; flip its sign so a positive PSNC means
     # "more bits to encode" (same convention as BIC).
-    d_psnc_bic = _psnc((bic_r_sklearn - bic_p) / 2.0, n, K)
-    d_psnc_ll = _psnc(-(ll_r - ll_p), n, K)
+    d_psnc_bic_pct = _psnc_pct((bic_r_sklearn - bic_p) / 2.0, n, K)
+    d_psnc_ll_pct = _psnc_pct(-(ll_r - ll_p), n, K)
     d_np = np_r - np_p
 
     # --- Per-cluster scalars: weights, noise, signal dims ----------------
@@ -332,8 +336,8 @@ def _compare_one(
 
     # --- Pass/fail tag ---------------------------------------------------
     ok = _pass_thresholds(
-        d_psnc_bic=d_psnc_bic,
-        d_psnc_ll=d_psnc_ll,
+        d_psnc_bic_pct=d_psnc_bic_pct,
+        d_psnc_ll_pct=d_psnc_ll_pct,
         d_np=d_np,
         d_w=d_w,
         d_b=d_b,
@@ -344,8 +348,8 @@ def _compare_one(
     mark = "" if ok else "  ⚠"
 
     return (
-        f"| {model + mark:>10s} | {_fmt(d_psnc_bic, 12, 6)} | "
-        f"{_fmt(d_psnc_ll, 12, 6)} | {_fmt(d_np, 7)} | "
+        f"| {model + mark:>10s} | {_fmt(d_psnc_bic_pct, 12, 4)} | "
+        f"{_fmt(d_psnc_ll_pct, 12, 4)} | {_fmt(d_np, 7)} | "
         f"{_fmt(d_w)} | {_fmt(d_mu)} | {_fmt(d_b)} | "
         f"{_fmt(sum_d_diff, 8)} | {_fmt(worst_theta)} | "
         f"{_fmt(nmi, 6, 3)} | {_fmt(ari, 6, 3)} |"
@@ -392,20 +396,24 @@ ordering still aligns to zero.
 
 | Column | Definition | Tolerance |
 | --- | --- | ---: |
-| `ΔPSNC_BIC` | `(BIC_R_sklearn − BIC_Py) / (2·n·log K)` — see `docs/INFORMATION_CRITERIA.md` §3 | `1e-3` |
-| `ΔPSNC_LL` | `(loglik_Py − loglik_R) / (n·log K)` (same sign convention as BIC) | `1e-3` |
+| `ΔPSNC_BIC %` | `100 · (BIC_R_sklearn − BIC_Py) / (2·n·log K)` — see `docs/INFORMATION_CRITERIA.md` §3 | `0.1%` |
+| `ΔPSNC_LL %` | `100 · (loglik_Py − loglik_R) / (n·log K)` (same sign convention as BIC) | `0.1%` |
 | `Δn_par` | integer parameter-count difference | `0` |
-| `max\\|Δπ\\|` | worst per-cluster mixing-proportion difference (after Hungarian match) | `1e-2` |
-| `max\\|Δμ\\|` | worst per-cluster mean L2 difference | (logged) |
-| `max\\|Δb\\|` | worst per-cluster noise-variance difference | `1e-2` |
-| `Σ\\|Δd_k\\|` | sum of absolute signal-dim differences across clusters | `0` |
+| `max Δπ` | worst per-cluster mixing-proportion difference (after Hungarian match) | `1e-2` |
+| `max Δμ` | worst per-cluster mean L2 difference | (logged) |
+| `max Δb` | worst per-cluster noise-variance difference | `1e-2` |
+| `Σ Δd_k` | sum of absolute signal-dim differences across clusters | `0` |
 | `maxθ°(Q)` | largest principal angle (deg) between R and Py per-cluster signal subspaces | `5°` |
 | `NMI`, `ARI` | hard-label agreement between R and Py assignments (permutation-invariant) | `NMI > 0.95` |
 
-PSNC (Per-Sample Nats Criterion) normalises the cost by `n · log K` so
-that two datasets with very different `(n, K)` become comparable. A
-PSNC delta of `1e-3` means **one thousandth of a nat per sample per
-log K unit**, which is well below any practical threshold for
+PSNC (Per-Sample Nats Criterion) normalises the cost by `n · log K`
+so that two datasets with very different `(n, K)` become directly
+comparable. Reported as a **percentage of the uniform-random
+baseline**: **0% = perfect prediction**, **100% = the model is no
+better than uniformly guessing among K classes** (i.e. rolling a
+fair K-sided die). A `ΔPSNC` of `0.001%` means the two
+implementations differ by one part in a hundred-thousand of the
+uniform-random cost — well below any practical threshold for
 distinguishing model fits.
 
 A row passes ✓ when **every** metric clears its tolerance. ⚠ flags
@@ -448,18 +456,31 @@ Rcpp/Eigen produce numerically identical fits.
 
 
 def _render_table(rows: List[str]) -> List[str]:
-    """Wrap row strings with the markdown header + separator."""
-    header = (
-        f"| {'model':>10s} | {'ΔPSNC_BIC':>12s} | {'ΔPSNC_LL':>12s} | "
-        f"{'Δn_par':>7s} | {'max|Δπ|':>10s} | {'max|Δμ|':>10s} | "
-        f"{'max|Δb|':>10s} | {'Σ|Δd_k|':>8s} | "
-        f"{'maxθ°(Q)':>10s} | {'NMI':>6s} | {'ARI':>6s} |"
-    )
-    sep = (
-        "|"
-        + "|".join(["-" * (len(c) + 2) for c in header.split("|")[1:-1]])
-        + "|"
-    )
+    """Wrap row strings with the markdown header + separator.
+
+    Column names are deliberately ASCII-pipe-free: the prior naming
+    (``max|Δπ|``) embedded literal ``|`` characters that markdown
+    renderers interpret as cell separators, producing phantom empty
+    columns. We replace ``max|x|`` with ``max Δx``  — the metric is
+    already an absolute value internally so the bars are redundant.
+    """
+    # Each column is (header text, width). Width must match the
+    # formatting used in ``_compare_one`` for the data rows.
+    cols = [
+        ("model",       10),
+        ("ΔPSNC_BIC %", 12),
+        ("ΔPSNC_LL %",  12),
+        ("Δn_par",       7),
+        ("max Δπ",      10),
+        ("max Δμ",      10),
+        ("max Δb",      10),
+        ("Σ Δd_k",       8),
+        ("maxθ°(Q)",    10),
+        ("NMI",          6),
+        ("ARI",          6),
+    ]
+    header = "| " + " | ".join(f"{name:>{w}s}" for name, w in cols) + " |"
+    sep = "|" + "|".join("-" * (w + 2) for _, w in cols) + "|"
     return [header, sep, *rows]
 
 

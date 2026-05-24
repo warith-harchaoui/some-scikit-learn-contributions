@@ -1,6 +1,11 @@
 # Runtime requirements for the contribution materials.
-# Pin to a recent scikit-learn so the draft estimator (`pr_hddc/_hddc.py`)
-# can use the modern `validate_data` API.
+#
+# Lower bounds are the oldest versions the code has been exercised
+# against. scikit-learn must be 1.6+ for the modern ``validate_data``
+# API used in ``pr_hddc/_hddc.py``; the rest are conservative floors.
+#
+# Last verified on (2026-05): numpy 2.4.4, scipy 1.17.1,
+# scikit-learn 1.8.0, matplotlib 3.10.9, pytest 9.0.3.
 numpy>=1.24
 scipy>=1.10
 scikit-learn>=1.6

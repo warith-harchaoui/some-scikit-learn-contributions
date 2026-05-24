@@ -565,10 +565,12 @@ HDclassif fits exactly when the threshold and noise floor are
 matched. See the parity check in `hdclassif_parity/` for the
 numerical evidence.
 
-Code in `_hddc.py::cattell_scree_test`:
+Code in `_hddc.py::_cattell_scree_test` (private; the leading
+underscore signals that the function is an implementation detail,
+not part of the public API):
 
 ```python
-def cattell_scree_test(eigvals, threshold=0.5, noise_ctrl=1e-8):
+def _cattell_scree_test(eigvals, threshold=0.5, noise_ctrl=1e-8):
     eigvals = np.asarray(eigvals, dtype=float)
     p = eigvals.size
     if p <= 2:
@@ -631,19 +633,27 @@ production work, treat it as a third tuning axis next to `K` and
 
 #### 3.5.1 Flat scree plot
 
-If the empirical covariance is near-isotropic (true within-cluster
-covariance is `sigma^2 I`), all eigenvalues are similar and no
-normalised drop exceeds `threshold`. The rule then returns
-`d_k = 1`, treating *almost all* axes as noise — the cluster is
-parameterised as a single signal direction plus a `(p − 1)`-dim
-isotropic noise halo. This is the safer failure mode (under-fits
-the signal subspace rather than over-fits it) but can still bias
-the BIC ranking against more elaborate sub-models.
+If every eigenvalue is **exactly equal** (true within-cluster
+covariance is `sigma^2 I`), every consecutive drop is zero, so
+`max_diff = 0` and the rule short-circuits to `d_k = 1` — the
+cluster is parameterised as a single signal direction plus a
+`(p − 1)`-dim isotropic noise halo.
 
-Mitigation: lower `cattell_threshold` (e.g. 0.2 to match HDclassif's
-default) so smaller normalised drops also trigger the elbow, or
-pass `signal_dim=d` to force a chosen `d` on an `*E`-dim sub-model
-(e.g. `model="AVE"` / `akj_bk_Qk_d`).
+If eigenvalues decline in a **near-uniform** way (e.g. a slow
+linear ramp) — distinct from each other but at a roughly constant
+rate — all drops have similar magnitudes, normalise to ≈ 1.0
+each, and **all** clear `threshold`. The rule then picks the
+largest eligible index, i.e. `d_k = p − 1`, which is the opposite
+failure mode (claims that almost all axes are signal). This
+inflates `_n_parameters` and biases model selection toward
+simpler `K`. Same algorithm, two opposite degenerate behaviours
+depending on which "flat" the data is closer to.
+
+Mitigation in either case: pass `signal_dim=d` to force a chosen
+`d` on an `*E`-dim sub-model (e.g. `model="AVE"` /
+`akj_bk_Qk_d`), or — for the near-uniform-decline case — raise
+`cattell_threshold` toward `1.0` to force only the single
+sharpest drop to count.
 
 #### 3.5.2 A single huge eigenvalue followed by a gentle slope
 

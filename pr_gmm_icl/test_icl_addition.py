@@ -1,16 +1,34 @@
 """
 Tests to add to ``sklearn/mixture/tests/test_gaussian_mixture.py``.
 
-Two functions:
+Six functions, covering the load-bearing invariants and edge cases
+of the new ``icl`` method:
 
-1. ``test_gaussian_mixture_icl`` - unit-level sanity checks: ICL >= BIC,
-   ICL = BIC on a hard partition, monotonicity in entropy, agreement
-   across covariance types.
+1. ``test_gaussian_mixture_icl`` — unit-level sanity checks: ICL >= BIC,
+   ICL = BIC + 2H across all covariance types.
 
-2. ``test_gaussian_mixture_icl_student_mixture`` - the empirical
+2. ``test_gaussian_mixture_icl_not_fitted_raises`` — calling icl() on
+   an unfitted estimator raises ``NotFittedError`` (matches ``bic``).
+
+3. ``test_gaussian_mixture_icl_equals_bic_on_hard_partition`` — when
+   responsibilities collapse to a hard partition the entropy term
+   vanishes and ICL coincides with BIC.
+
+4. ``test_gaussian_mixture_icl_equals_bic_at_K1`` — at ``K=1`` the
+   responsibilities are identically 1, so the entropy term is exactly
+   0 and ICL must equal BIC bit-for-bit.
+
+5. ``test_gaussian_mixture_icl_no_runtime_warning_on_hard_partition``
+   — the implementation uses :func:`scipy.special.xlogy` so that
+   ``0 * log(0)`` returns 0 with no ``RuntimeWarning``. This test
+   makes the design choice explicit.
+
+6. ``test_gaussian_mixture_icl_student_mixture`` — the empirical
    argument behind this contribution: on a heavy-tailed Student-t
    mixture, BIC overestimates K while ICL recovers the true K.
 """
+
+import warnings
 
 import numpy as np
 import pytest
@@ -78,6 +96,46 @@ def test_gaussian_mixture_icl_equals_bic_on_hard_partition():
         max_iter=200, tol=1e-7,
     ).fit(X)
     assert np.isclose(gmm.icl(X), gmm.bic(X), rtol=0, atol=1e-3)
+
+
+def test_gaussian_mixture_icl_equals_bic_at_K1():
+    """At K=1, responsibilities are identically 1 → entropy = 0 → ICL = BIC.
+
+    Sanity check that the degenerate single-component case is handled
+    cleanly. Critical because some entropy formulations propagate NaN
+    or raise on the K=1 corner; the ``xlogy`` form does not.
+    """
+    rng = np.random.RandomState(0)
+    X = rng.randn(200, 3)
+    for cv_type in COVARIANCE_TYPE:
+        gmm = GaussianMixture(
+            n_components=1, covariance_type=cv_type, random_state=0,
+        ).fit(X)
+        # Bit-equivalent, not just close — entropy is mathematically 0.
+        assert gmm.icl(X) == gmm.bic(X), (
+            f"At K=1 (cv={cv_type}): ICL={gmm.icl(X)} != BIC={gmm.bic(X)}"
+        )
+
+
+def test_gaussian_mixture_icl_no_runtime_warning_on_hard_partition():
+    """``icl`` on a near-hard partition must not emit RuntimeWarning.
+
+    The implementation uses ``scipy.special.xlogy(resp, resp)`` which
+    returns 0 for ``resp == 0`` instead of evaluating ``0 * log(0)``
+    and triggering ``invalid value encountered in log``. This test
+    pins that design choice — switching to ``resp * np.log(resp)``
+    with an ``eps`` clip would silently re-introduce the warning.
+    """
+    rng = np.random.RandomState(0)
+    centers = np.array([[-50.0, 0.0], [0.0, 50.0], [50.0, -50.0]])
+    X = np.vstack([c + rng.randn(200, 2) for c in centers])
+    gmm = GaussianMixture(
+        n_components=3, covariance_type="full", random_state=rng,
+        max_iter=200, tol=1e-7,
+    ).fit(X)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        gmm.icl(X)
 
 
 @pytest.mark.parametrize("df", [3, 5, 10])

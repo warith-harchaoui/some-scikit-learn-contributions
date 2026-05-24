@@ -42,7 +42,7 @@ def _toy(random_state=0, n=300, p=20, K=3):
 # --------------------------------------------------------------------------
 
 def test_hddc_check_estimator():
-    """sklearn common-tests.
+    """sklearn common-tests on the default (AVV) sub-model.
 
     Verified locally against sklearn 1.8 (2026-05-21): 43 of 44
     sub-checks pass; the one skip is ``check_pipeline_consistency``,
@@ -52,6 +52,19 @@ def test_hddc_check_estimator():
     ``__sklearn_tags__``.
     """
     check_estimator(HighDimensionalGaussianMixture(n_components=2, n_init=1))
+
+
+def test_hddc_check_estimator_constrained_model():
+    """sklearn common-tests on a constrained sub-model (UEE).
+
+    Covers a different code path through ``_apply_model_constraints``
+    than the default ``AVV``: ``UEE`` tying every axis exercises the
+    signal / noise / dim collapse branches together, which the
+    default never hits.
+    """
+    check_estimator(
+        HighDimensionalGaussianMixture(n_components=2, model="UEE", n_init=1)
+    )
 
 
 # --------------------------------------------------------------------------
@@ -72,6 +85,103 @@ def test_hddc_fit_predict_smoke(model):
         v = getattr(hgmm, name)(X)
         assert np.isfinite(v), f"{name} non-finite for model={model}"
         assert isinstance(v, float)
+
+
+def test_hddc_fit_recovers_blobs_at_AVV():
+    """On well-separated blobs the default sub-model must recover them.
+
+    The smoke test only checks that ``predict`` returns labels in
+    range and ``bic`` is finite — it would pass even if EM
+    diverged. This stronger test asserts a clustering-quality floor
+    (``ARI >= 0.9``) on the same toy data, so a regression that
+    silently breaks the EM update is caught.
+    """
+    from sklearn.metrics import adjusted_rand_score
+    X, y = _toy()
+    hgmm = HighDimensionalGaussianMixture(
+        n_components=3, model="AVV", random_state=0, n_init=1, max_iter=200,
+    ).fit(X)
+    assert adjusted_rand_score(y, hgmm.labels_) >= 0.9
+
+
+def test_hddc_fit_is_reproducible_given_seed():
+    """Two ``fit(X, random_state=0)`` calls produce identical fits.
+
+    ``HighDimensionalGaussianMixture`` declares
+    ``non_deterministic = True``, but only with respect to *init*
+    variance. With a fixed ``random_state`` the run must be
+    bit-reproducible — that is the contract that lets users debug.
+    """
+    X, _ = _toy()
+    fit1 = HighDimensionalGaussianMixture(
+        n_components=3, model="AVV", random_state=0, n_init=1, max_iter=50,
+    ).fit(X)
+    fit2 = HighDimensionalGaussianMixture(
+        n_components=3, model="AVV", random_state=0, n_init=1, max_iter=50,
+    ).fit(X)
+    np.testing.assert_array_equal(fit1.labels_, fit2.labels_)
+    np.testing.assert_allclose(fit1.weights_, fit2.weights_, rtol=0, atol=0)
+    np.testing.assert_allclose(fit1.means_, fit2.means_, rtol=0, atol=0)
+    np.testing.assert_allclose(
+        fit1.noise_variances_, fit2.noise_variances_, rtol=0, atol=0
+    )
+
+
+def test_hddc_pickle_roundtrip():
+    """A fitted estimator survives pickle.dumps / pickle.loads.
+
+    ``check_estimator`` also exercises pickling, but burying the
+    coverage there makes regressions hard to track down. An
+    explicit test keeps the contract visible.
+    """
+    import pickle
+
+    X, _ = _toy()
+    fit = HighDimensionalGaussianMixture(
+        n_components=3, model="AVV", random_state=0, n_init=1, max_iter=50,
+    ).fit(X)
+    blob = pickle.dumps(fit)
+    fit2 = pickle.loads(blob)
+
+    np.testing.assert_array_equal(fit.predict(X), fit2.predict(X))
+    np.testing.assert_allclose(fit.score_samples(X), fit2.score_samples(X))
+    assert fit.bic(X) == fit2.bic(X)
+    assert fit.icl(X) == fit2.icl(X)
+
+
+def test_hddc_infeasible_K_min_cluster_size_raises():
+    """K * min_cluster_size > n raises before EM starts.
+
+    The "steal" mechanism in ``_m_step`` can only satisfy
+    ``K * min_cluster_size <= n_samples``; if the request is
+    infeasible we raise immediately rather than spin in an
+    unsatisfiable loop.
+    """
+    X, _ = _toy(n=40)
+    hgmm = HighDimensionalGaussianMixture(
+        n_components=10, min_cluster_size=20,  # 10 * 20 = 200 > 40
+    )
+    with pytest.raises(ValueError, match="exceeds n_samples"):
+        hgmm.fit(X)
+
+
+def test_hddc_bad_init_array_raises():
+    """``init_params=`` ndarray with invalid contents raises a clear error."""
+    X, _ = _toy()
+    # Wrong length.
+    hgmm_bad_len = HighDimensionalGaussianMixture(
+        n_components=3, init_params=np.zeros(X.shape[0] - 1, dtype=int),
+    )
+    with pytest.raises(ValueError, match="init_params"):
+        hgmm_bad_len.fit(X)
+
+    # Invalid cluster id (out of [0, n_components)).
+    hgmm_bad_id = HighDimensionalGaussianMixture(
+        n_components=3,
+        init_params=np.full(X.shape[0], fill_value=99, dtype=int),
+    )
+    with pytest.raises(ValueError, match="init_params"):
+        hgmm_bad_id.fit(X)
 
 
 # --------------------------------------------------------------------------
@@ -351,9 +461,12 @@ def test_hddc_model_alias_equivalence(geo, paper):
         n_components=3, model=paper, random_state=0, n_init=1, max_iter=20,
     ).fit(X)
     assert a._geometric_model_ == b._geometric_model_ == geo
-    # Exact same EM trajectory under same random_state.
-    np.testing.assert_allclose(a.weights_, b.weights_)
-    np.testing.assert_allclose(a.means_, b.means_)
+    # Exact same EM trajectory under same random_state. Aliases must
+    # be **bit-equivalent**; default ``assert_allclose`` tolerances
+    # would silently absorb a real implementation bug.
+    np.testing.assert_allclose(a.weights_, b.weights_, rtol=1e-12, atol=0)
+    np.testing.assert_allclose(a.means_, b.means_, rtol=1e-12, atol=0)
+    np.testing.assert_array_equal(a.labels_, b.labels_)
 
 
 def test_hddc_model_kwargs_only_no_model():
@@ -433,3 +546,73 @@ def test_hddc_unknown_model_string_rejected():
     # ValueError with the offending string in it.
     with pytest.raises(ValueError):
         hgmm.fit(X)
+
+
+# --------------------------------------------------------------------------
+# 7. Cattell scree-rule unit tests (direct, not via EM)
+# --------------------------------------------------------------------------
+# These exercise ``pr_hddc/_hddc.py::_cattell_scree_test`` in
+# isolation, on hand-crafted spectra whose elbow is unambiguous, so
+# a regression in the rule is caught without an EM run muddying
+# the signal.
+
+from sklearn.mixture._hddc import _cattell_scree_test  # noqa: E402
+
+
+def test_cattell_scree_test_clear_elbow():
+    """One sharp drop -> ``d`` equals the position of the drop."""
+    # Two signal dims (large) + four noise dims (small, equal).
+    eigvals = np.array([10.0, 9.0, 0.1, 0.1, 0.1, 0.1])
+    assert _cattell_scree_test(eigvals, threshold=0.5) == 2
+
+
+def test_cattell_scree_test_isotropic_spectrum_returns_one():
+    """Truly isotropic spectrum -> ``d = 1``.
+
+    All eigenvalues equal makes every consecutive drop zero, so
+    ``max_diff = 0`` and the rule short-circuits to ``d = 1``. This
+    is the "no signal direction is distinguishable" failure mode
+    documented in ``docs/HDDC.md`` §3.5.1.
+    """
+    eigvals = np.full(8, 1.0)
+    assert _cattell_scree_test(eigvals, threshold=0.5) == 1
+
+
+def test_cattell_scree_test_noise_floor_blocks_late_pick():
+    """``noise_ctrl`` prevents elevating sub-floor eigenvalues to signal.
+
+    The eligible-position mask requires ``eigvals[i+1] > noise_ctrl``,
+    so a "drop" between two near-zero eigenvalues never counts.
+    """
+    # Real signal: indices 0..1. Spurious drop at 5->6 is below floor.
+    eigvals = np.array([5.0, 4.0, 0.5, 0.4, 0.3, 0.2, 1e-12])
+    d = _cattell_scree_test(eigvals, threshold=0.2, noise_ctrl=1e-8)
+    assert d <= 5, f"noise_ctrl failed; got d={d}"
+
+
+def test_cattell_scree_test_picks_latest_eligible_drop():
+    """At ``threshold=0.2`` the rule picks the **largest** eligible
+    position, not the first.
+
+    Spectrum has two normalised drops above 0.2: position 0->1
+    (norm 0.27) and position 4->5 (norm 1.0, the maximum). Both are
+    eligible. The HDclassif-aligned rule picks the *largest* index
+    among the eligible — d = 5.
+    """
+    # diffs: [1.0, 0.1, 0.1, 0.1, 3.7, 0.1]
+    # max_diff = 3.7 → norm: [0.27, 0.027, 0.027, 0.027, 1.0, 0.027]
+    # above_thr(0.2) at positions 0 and 4 → d = 5 (1-indexed)
+    eigvals = np.array([10.0, 9.0, 8.9, 8.8, 8.7, 5.0, 4.9])
+    assert _cattell_scree_test(eigvals, threshold=0.2) == 5
+
+
+def test_cattell_scree_test_rejects_unsorted_input():
+    """A non-monotone input is a programming error, not data noise."""
+    with pytest.raises(ValueError, match=r"non-increasing"):
+        _cattell_scree_test(np.array([1.0, 2.0, 0.5]))
+
+
+def test_cattell_scree_test_short_input_returns_one():
+    """Spectra of length <= 2 special-case to ``d = 1``."""
+    assert _cattell_scree_test(np.array([1.0])) == 1
+    assert _cattell_scree_test(np.array([1.0, 0.1])) == 1

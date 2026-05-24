@@ -117,7 +117,7 @@ _MCLUST_CONFUSABLES = frozenset({
 # Cattell scree test
 # --------------------------------------------------------------------------
 
-def cattell_scree_test(
+def _cattell_scree_test(
     eigvals: np.ndarray,
     threshold: float = 0.5,
     noise_ctrl: float = 1e-8,
@@ -621,7 +621,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
             eigvals = eigvals_asc[::-1]
             rank_eff = p
 
-        d = cattell_scree_test(eigvals[:rank_eff], self.cattell_threshold)
+        d = _cattell_scree_test(eigvals[:rank_eff], self.cattell_threshold)
         return max(1, min(int(d), rank_eff - 1, p - 1))
 
     def _apply_model_constraints(self) -> None:
@@ -722,6 +722,24 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
     # ------------------------------------------------------------------ #
 
     def _compute_log_density(self, X: np.ndarray, k: int) -> np.ndarray:
+        """Log-density of component ``k`` evaluated at each row of ``X``.
+
+        Uses the HDDC factorisation of the per-component covariance:
+        signal eigenvalues on the first ``d_k`` axes of ``Q_k``, and
+        an isotropic ``b_k`` on the orthogonal complement.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+        k : int
+            Component index in ``[0, n_components)``.
+
+        Returns
+        -------
+        log_density : ndarray of shape (n_samples,)
+            ``log N(x_i ; mu_k, Sigma_k)`` under the HDDC
+            parameterisation.
+        """
         diff = X - self.means_[k]
         eigvals = np.maximum(self.eigenvalues_[k], _EPS)
         dk = self.signal_dims_[k]
@@ -742,6 +760,20 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         return -0.5 * (log_det + signal + noise + p * math.log(2 * math.pi))
 
     def _e_step(self, X: np.ndarray) -> float:
+        """E-step: refresh ``self.responsibilities_`` and return log L(X).
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+
+        Returns
+        -------
+        log_likelihood : float
+            Sample log-likelihood ``sum_i log p(x_i)`` under the
+            current parameters. Used by the outer EM loop both to
+            check convergence (change since previous iteration < tol)
+            and to compare final fits across ``n_init`` restarts.
+        """
         n = X.shape[0]
         log_resp = np.empty((n, self.n_components))
         for k in range(self.n_components):
@@ -840,7 +872,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
             # projection in _apply_model_constraints will collapse
             # these if the resolved model has dim=="E". Capped at
             # ``rank_eff - 1`` so the noise subspace is non-empty.
-            d_full = cattell_scree_test(
+            d_full = _cattell_scree_test(
                 self.eigenvalues_[k][:rank_eff], self.cattell_threshold,
             )
             self.signal_dims_[k] = max(1, min(d_full, rank_eff - 1, p - 1))
@@ -1018,7 +1050,14 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
     def _check_fitted(self) -> None:
         check_is_fitted(self, "weights_")
 
-    def _validate_X_predict(self, X):
+    def _validate_X_predict(self, X) -> np.ndarray:
+        """Validate ``X`` against the shape and dtype seen at fit time.
+
+        Thin wrapper around :func:`sklearn.utils.validation.validate_data`
+        with ``reset=False`` so the feature count and dtype must match
+        the training data. Used by every predict-time method
+        (``predict``, ``predict_proba``, ``score_samples``).
+        """
         return validate_data(self, X, dtype=np.float64, reset=False)
 
     def predict(self, X):

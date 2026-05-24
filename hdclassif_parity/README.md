@@ -99,13 +99,15 @@ need to read.
 
 ## What is compared
 
+The full breakdown lives in the generated [`report.md`](report.md);
+the columns are:
+
 | Metric | What it captures |
 | --- | --- |
-| `ΔPSNC_BIC` | Per-Sample Nats Criterion delta on BIC — see [`../docs/INFORMATION_CRITERIA.md`](../docs/INFORMATION_CRITERIA.md) §3. Normalises away `(n, K)` so all datasets are on the same scale. |
-| `ΔPSNC_LL` | Same for the log-likelihood at the EM fixed point. |
+| `ΔPSNC_BIC %`, `ΔPSNC_LL %` | Per-Sample Nats Criterion delta on BIC / log-likelihood — see [`../docs/INFORMATION_CRITERIA.md`](../docs/INFORMATION_CRITERIA.md) §3. Reported as a percentage of the uniform-random baseline (0% = perfect prediction, 100% = no better than guessing among K classes). |
 | `Δn_par` | Integer parameter-count diff. Must be 0 for a passing row. |
-| `max\|Δπ\|`, `max\|Δμ\|`, `max\|Δb\|` | Worst per-cluster mixing-proportion / mean / noise-variance disagreement, after Hungarian alignment. |
-| `Σ\|Δd_k\|` | Sum of absolute per-cluster signal-dim differences. |
+| `max Δπ`, `max Δμ`, `max Δb` | Worst per-cluster mixing-proportion / mean / noise-variance disagreement, after Hungarian alignment. |
+| `Σ Δd_k` | Sum of absolute per-cluster signal-dim differences. |
 | `maxθ°(Q)` | Largest principal angle (deg) between R and Python per-cluster signal subspaces — sign- and basis-rotation invariant. |
 | `NMI`, `ARI` | Permutation-invariant hard-label agreement. |
 

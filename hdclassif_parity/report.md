@@ -23,20 +23,24 @@ ordering still aligns to zero.
 
 | Column | Definition | Tolerance |
 | --- | --- | ---: |
-| `ΔPSNC_BIC` | `(BIC_R_sklearn − BIC_Py) / (2·n·log K)` — see `docs/INFORMATION_CRITERIA.md` §3 | `1e-3` |
-| `ΔPSNC_LL` | `(loglik_Py − loglik_R) / (n·log K)` (same sign convention as BIC) | `1e-3` |
+| `ΔPSNC_BIC %` | `100 · (BIC_R_sklearn − BIC_Py) / (2·n·log K)` — see `docs/INFORMATION_CRITERIA.md` §3 | `0.1%` |
+| `ΔPSNC_LL %` | `100 · (loglik_Py − loglik_R) / (n·log K)` (same sign convention as BIC) | `0.1%` |
 | `Δn_par` | integer parameter-count difference | `0` |
-| `max\|Δπ\|` | worst per-cluster mixing-proportion difference (after Hungarian match) | `1e-2` |
-| `max\|Δμ\|` | worst per-cluster mean L2 difference | (logged) |
-| `max\|Δb\|` | worst per-cluster noise-variance difference | `1e-2` |
-| `Σ\|Δd_k\|` | sum of absolute signal-dim differences across clusters | `0` |
+| `max Δπ` | worst per-cluster mixing-proportion difference (after Hungarian match) | `1e-2` |
+| `max Δμ` | worst per-cluster mean L2 difference | (logged) |
+| `max Δb` | worst per-cluster noise-variance difference | `1e-2` |
+| `Σ Δd_k` | sum of absolute signal-dim differences across clusters | `0` |
 | `maxθ°(Q)` | largest principal angle (deg) between R and Py per-cluster signal subspaces | `5°` |
 | `NMI`, `ARI` | hard-label agreement between R and Py assignments (permutation-invariant) | `NMI > 0.95` |
 
-PSNC (Per-Sample Nats Criterion) normalises the cost by `n · log K` so
-that two datasets with very different `(n, K)` become comparable. A
-PSNC delta of `1e-3` means **one thousandth of a nat per sample per
-log K unit**, which is well below any practical threshold for
+PSNC (Per-Sample Nats Criterion) normalises the cost by `n · log K`
+so that two datasets with very different `(n, K)` become directly
+comparable. Reported as a **percentage of the uniform-random
+baseline**: **0% = perfect prediction**, **100% = the model is no
+better than uniformly guessing among K classes** (i.e. rolling a
+fair K-sided die). A `ΔPSNC` of `0.001%` means the two
+implementations differ by one part in a hundred-thousand of the
+uniform-random cost — well below any practical threshold for
 distinguishing model fits.
 
 A row passes ✓ when **every** metric clears its tolerance. ⚠ flags
@@ -71,34 +75,34 @@ diffing:
 
 _4/4 sub-models pass strict tolerance._
 
-|      model |    ΔPSNC_BIC |     ΔPSNC_LL |  Δn_par |    max|Δπ| |    max|Δμ| |    max|Δb| |  Σ|Δd_k| |   maxθ°(Q) |    NMI |    ARI |
-|--------------|----------------|----------------|-----------|---------|----|---|---------|----|---|---------|----|---|-----|------|---|--------------|----------|----------|
-|        AVV |     0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0002 |  1.000 |  1.000 |
-|        AEE |    -0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0002 |  1.000 |  1.000 |
-|     AEE_d1 |     0.000000 |    -0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0001 |  1.000 |  1.000 |
-|     AEE_d2 |    -0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0002 |  1.000 |  1.000 |
+|      model |  ΔPSNC_BIC % |   ΔPSNC_LL % |  Δn_par |     max Δπ |     max Δμ |     max Δb |   Σ Δd_k |   maxθ°(Q) |    NMI |    ARI |
+|------------|--------------|--------------|---------|------------|------------|------------|----------|------------|--------|--------|
+|        AVV |       0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0002 |  1.000 |  1.000 |
+|        AEE |      -0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0002 |  1.000 |  1.000 |
+|     AEE_d1 |       0.0000 |      -0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0001 |  1.000 |  1.000 |
+|     AEE_d2 |      -0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0002 |  1.000 |  1.000 |
 
 ## `synth_highdim`  (n=200, p=30, K=4)
 
 _4/4 sub-models pass strict tolerance._
 
-|      model |    ΔPSNC_BIC |     ΔPSNC_LL |  Δn_par |    max|Δπ| |    max|Δμ| |    max|Δb| |  Σ|Δd_k| |   maxθ°(Q) |    NMI |    ARI |
-|--------------|----------------|----------------|-----------|---------|----|---|---------|----|---|---------|----|---|-----|------|---|--------------|----------|----------|
-|        AVV |     0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
-|        AEE |     0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
-|     AEE_d1 |    -0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0001 |  1.000 |  1.000 |
-|     AEE_d2 |    -0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
+|      model |  ΔPSNC_BIC % |   ΔPSNC_LL % |  Δn_par |     max Δπ |     max Δμ |     max Δb |   Σ Δd_k |   maxθ°(Q) |    NMI |    ARI |
+|------------|--------------|--------------|---------|------------|------------|------------|----------|------------|--------|--------|
+|        AVV |       0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
+|        AEE |       0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
+|     AEE_d1 |      -0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0001 |  1.000 |  1.000 |
+|     AEE_d2 |      -0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
 
 ## `synth_lowdim`  (n=600, p=5, K=3)
 
 _4/4 sub-models pass strict tolerance._
 
-|      model |    ΔPSNC_BIC |     ΔPSNC_LL |  Δn_par |    max|Δπ| |    max|Δμ| |    max|Δb| |  Σ|Δd_k| |   maxθ°(Q) |    NMI |    ARI |
-|--------------|----------------|----------------|-----------|---------|----|---|---------|----|---|---------|----|---|-----|------|---|--------------|----------|----------|
-|        AVV |     0.000000 |    -0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
-|        AEE |    -0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
-|     AEE_d1 |     0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0003 |  1.000 |  1.000 |
-|     AEE_d2 |    -0.000000 |     0.000000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
+|      model |  ΔPSNC_BIC % |   ΔPSNC_LL % |  Δn_par |     max Δπ |     max Δμ |     max Δb |   Σ Δd_k |   maxθ°(Q) |    NMI |    ARI |
+|------------|--------------|--------------|---------|------------|------------|------------|----------|------------|--------|--------|
+|        AVV |       0.0000 |      -0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
+|        AEE |      -0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
+|     AEE_d1 |       0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0003 |  1.000 |  1.000 |
+|     AEE_d2 |      -0.0000 |       0.0000 |       0 |     0.0000 |     0.0000 |     0.0000 |        0 |     0.0006 |  1.000 |  1.000 |
 
 ## Scope
 
