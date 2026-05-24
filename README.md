@@ -62,9 +62,8 @@ the same information-criterion story (`bic` and `icl` together).
 │   └── HDDC.md                        <- naming schemes + Bouveyron Table 1 audit + Cattell scree rule for d_k
 │
 ├── tools/                             <- downstream personal code (NOT in PR)
-│   ├── README.md                      <- auto_select_mixture + estimate_k_range docs
-│   ├── auto_mixture.py                <- auto_select_mixture: argmin-criterion across 4 GMM + 14 HDDC × K_grid (+ CLI)
-│   └── estimate_k_range.py            <- kmeans++ elbow rule that picks K_grid for auto_mixture (+ CLI)
+│   ├── README.md                      <- auto_select_mixture docs
+│   └── auto_mixture.py                <- argmin-criterion across 4 GMM + 14 HDDC × K_grid (+ CLI)
 │
 └── hdclassif_parity/                  <- numerical parity check vs HDclassif (R reference)
     ├── README.md                      <- pipeline overview + how to run

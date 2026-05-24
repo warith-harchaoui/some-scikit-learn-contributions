@@ -238,8 +238,6 @@ def round_bar_corners(ax, radius_px: float = _ROUND_CORNER_PX) -> None:
     if not ax.patches:
         return
     fig = ax.figure
-    # 1 point = 1/72 inch, fig.dpi pixels per inch.
-    pts_to_px = fig.dpi / 72.0
     radius_inch = radius_px / fig.dpi
     new_patches = []
     for patch in list(ax.patches):
@@ -250,7 +248,6 @@ def round_bar_corners(ax, radius_px: float = _ROUND_CORNER_PX) -> None:
         # Convert the requested pixel radius back to data units along
         # each axis (use the smaller side so the rounding never
         # exceeds the bar's own thickness).
-        inv = ax.transData.inverted()
         ax_w_pix = abs(ax.transData.transform((1, 0))[0]
                        - ax.transData.transform((0, 0))[0])
         ax_h_pix = abs(ax.transData.transform((0, 1))[1]

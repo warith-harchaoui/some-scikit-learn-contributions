@@ -120,7 +120,7 @@ class MixtureSelectionResult:
 
 def auto_select_mixture(
     X: np.ndarray,
-    K_grid: Iterable[int] | None = None,
+    K_grid: Iterable[int],
     *,
     criterion: str = "icl",
     n_init: int = 5,
@@ -137,11 +137,10 @@ def auto_select_mixture(
     Parameters
     ----------
     X : ndarray of shape (n_samples, n_features)
-    K_grid : iterable of int or None, default=None
-        Candidate numbers of components. If ``None``, the grid is
-        estimated automatically via
-        :func:`estimate_k_range.estimate_k_range` (k-means++ elbow
-        rule) — typically a fast sub-second call.
+    K_grid : iterable of int
+        Candidate numbers of components. Passing a value like
+        ``range(2, 16)`` is the typical choice; pick the upper bound
+        based on the problem's expected complexity.
     n_init : int, default=5
         Passed to every mixture estimator. For both GMM and HDDC,
         this is the kmeans++ exploration budget on the
@@ -169,17 +168,7 @@ def auto_select_mixture(
     -------
     MixtureSelectionResult
     """
-    if K_grid is None:
-        # ``estimate_k_range`` lives next to this module in ``tools/``.
-        # Make sure it is importable even when ``auto_mixture`` is
-        # used as a library from outside ``tools/``.
-        if _HERE not in sys.path:
-            sys.path.insert(0, _HERE)
-        from estimate_k_range import estimate_k_range  # noqa: E402
-        est = estimate_k_range(X, random_state=random_state)
-        K_grid = list(range(est.K_min, est.K_max + 1))
-    else:
-        K_grid = list(K_grid)
+    K_grid = list(K_grid)
     if not K_grid:
         raise ValueError("K_grid is empty.")
     if not gmm_families and not hddc_models:
@@ -347,14 +336,12 @@ def _cli(argv: Sequence[str] | None = None) -> int:
         help="Selection criterion. Default: icl.",
     )
     parser.add_argument(
-        "--k-min", type=int, default=None,
-        help="Lower bound of K_grid (inclusive). If neither --k-min "
-             "nor --k-max is given, the grid is estimated from X via "
-             "the k-means++ elbow rule in estimate_k_range.py.",
+        "--k-min", type=int, default=2,
+        help="Lower bound of K_grid (inclusive). Default: 2.",
     )
     parser.add_argument(
-        "--k-max", type=int, default=None,
-        help="Upper bound of K_grid (inclusive).",
+        "--k-max", type=int, default=15,
+        help="Upper bound of K_grid (inclusive). Default: 15.",
     )
     parser.add_argument(
         "--n-init", type=int, default=5,
@@ -440,18 +427,9 @@ def _cli(argv: Sequence[str] | None = None) -> int:
         return 0
 
     # -------- Train mode -----------------------------------------------------
-    if args.k_min is None and args.k_max is None:
-        # Auto K_grid via k-means++ elbow. Pass None to the helper;
-        # it will estimate and log the chosen [K_min, K_max].
-        K_grid = None
-        log.info(f"criterion={args.criterion.upper()}  "
-                 f"K_grid=auto  n_init={args.n_init}")
-    else:
-        k_min = 2 if args.k_min is None else args.k_min
-        k_max = 30 if args.k_max is None else args.k_max
-        K_grid = range(k_min, k_max + 1)
-        log.info(f"criterion={args.criterion.upper()}  "
-                 f"K_grid=[{k_min}..{k_max}]  n_init={args.n_init}")
+    K_grid = range(args.k_min, args.k_max + 1)
+    log.info(f"criterion={args.criterion.upper()}  "
+             f"K_grid=[{args.k_min}..{args.k_max}]  n_init={args.n_init}")
 
     gmm_families = None if args.hddc_only else GMM_COVARIANCE_TYPES
     hddc_models = None if args.gmm_only else HDDC_MODELS
@@ -466,9 +444,7 @@ def _cli(argv: Sequence[str] | None = None) -> int:
         hddc_models=hddc_models,
     )
     crit = args.criterion.upper()
-    # Surface the K range that was actually searched (estimate_k_range
-    # already logs its inference line, but echoing the final span makes
-    # the train-run output self-contained).
+    # Surface the K range that was actually searched.
     Ks_searched = sorted({K for (_, K) in result.score_grid})
     log.info(f"\nbest: {result.family}  K={result.K}  "
           f"{crit}={result.score:.2f}")

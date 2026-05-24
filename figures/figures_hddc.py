@@ -183,7 +183,7 @@ def make_fig_hddc_subfamily() -> str:
 
     fig, ax = plt.subplots(figsize=(11.5, 7.5))
     ys = np.arange(len(hddc_rows))
-    for y, (code, v) in zip(ys, hddc_rows):
+    for y, (_code, v) in zip(ys, hddc_rows):
         ax.barh(y, v, color=ROLE["icl"], alpha=0.85, height=0.7)
         ax.text(v + pad * 0.15, y, f"{int(v):,}", va="center",
                 fontsize=9, color=ROLE["text"])

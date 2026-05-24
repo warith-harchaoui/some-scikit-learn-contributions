@@ -51,7 +51,7 @@ from __future__ import annotations
 # --- Standard library --------------------------------------------------------
 import json
 import os
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple
 
 # --- Third-party -------------------------------------------------------------
 import numpy as np

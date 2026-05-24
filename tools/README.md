@@ -1,14 +1,11 @@
-# Downstream tools — `auto_select_mixture` + `estimate_k_range`
+# Downstream tools — `auto_select_mixture`
 
-These two modules are **downstream personal work**, not part of the
-two scikit-learn PRs (`pr_gmm_icl`, `pr_hddc`). They are reference
-implementations that show how the PRs compose end-to-end and that
-serve as candidates for a future sklearn helper.
+This module is **downstream personal work**, not part of the two
+scikit-learn PRs (`pr_gmm_icl`, `pr_hddc`). It is a reference
+implementation that shows how the PRs compose end-to-end and that
+serves as a candidate for a future sklearn helper.
 
-- [Part 1. `auto_select_mixture` — ICL-best across families and K](#part-1-auto_select_mixture--icl-best-across-families-and-k-in-one-call)
-- [Part 2. `estimate_k_range` — pick `K_grid` automatically](#part-2-estimate_k_range--pick-k_grid-automatically)
-
-## Part 1. `auto_select_mixture` — ICL-best across families and K in one call: GMM + HDDC
+## `auto_select_mixture` — ICL-best across families and K in one call: GMM + HDDC
 
 Selecting both the **model structure** (Gaussian-mixture covariance
 type, HDDC sub-model, …) and the **number of clusters $K$** is usually
@@ -137,7 +134,7 @@ from auto_mixture import (
 
 result = auto_select_mixture(
     X,
-    K_grid=None,             # None → estimate_k_range(X) picks the grid
+    K_grid=range(2, 16),     # required: candidate K values to sweep
     criterion="icl",         # "icl" (default) or "bic"
     n_init=5,                # kmeans++ budget per K
     max_iter=200,            # EM iteration cap per family
@@ -208,147 +205,6 @@ positioned as:
 - a **candidate for a future sklearn helper** (e.g.
   `sklearn.mixture.select_by_icl(X, K_grid=...)`) if and when the
   two core PRs land.
-
-## Part 2. `estimate_k_range` — pick `K_grid` automatically
-
-A 100-line companion module that picks a sensible upper bound `K_max`
-for the search grid of `auto_select_mixture` in well under a second,
-without fitting a single mixture model.
-
-### 2.1 Algorithm (q75-of-relative-gains elbow rule on k-means++ seeding)
-
-The recipe (exact constants taken from the user's spec):
-
-```
-min_cluster_size = 10
-K_hard_max       = min(100, n // min_cluster_size)
-epsilon          = 0.02
-patience         = 3
-R                = 20
-```
-
-1. **R independent runs of kmeans++ seeding.** For each run
-   `r = 1..R`:
-   - Pick the first centre uniformly at random.
-   - Add centres one at a time using the kmeans++ rule (sample
-     proportional to squared distance to the nearest existing
-     centre).
-   - Record the seeding inertia
-     $\Phi_K = \sum_i \min_{k \le K} \| x_i - c_k \|^2$
-     after each new centre.
-   - **No Lloyd's iterations.** Cost per run is
-     $O(K_{\text{hard\,max}} \cdot n \cdot p)$.
-
-2. **Relative gain per run.** For each step $K \to K+1$:
-
-   $$
-   g_K^{(r)} \;=\; \frac{\Phi_K^{(r)} - \Phi_{K+1}^{(r)}}{\Phi_K^{(r)}}.
-   $$
-
-3. **Aggregate across runs with the 75th percentile.**
-
-   $$
-   \widehat{g}_K \;=\; q_{0.75}\bigl(\{g_K^{(r)}\}_{r=1}^R\bigr).
-   $$
-
-   Using `q75` rather than the mean is robust to a few lucky
-   first-picks (small gain at K=2) or unlucky ones (artificially
-   small gain at a particular K). It says "even on three out of four
-   runs, gain is below ε".
-
-4. **Stop at first $K$ with `patience` consecutive flat gains.**
-
-   $$
-   K_{\text{stop}} \;=\; \min \bigl\{ K \;:\;
-   \widehat{g}_{K-i} < \epsilon \text{ for } i = 0, \dots, \text{patience}-1\bigr\}.
-   $$
-
-5. **Return** `(K_min, K_max) = (2, K_stop)`. If the rule never fires
-   within `K_hard_max`, the result hits the ceiling and the module
-   logs a hint to bump `k_hard_max`.
-
-### 2.2 Empirical sanity check
-
-| Dataset | $n$ | $p$ | `K_true` | Returned `K_max` | Note |
-| --- | ---: | ---: | ---: | ---: | --- |
-| iris    |  150 |   4 |  3 | 15 (cap) | small n, no flat region within 15 |
-| digits  | 1797 |  64 | 10 | 24       | comfortably above $K_{\text{true}}$ |
-
-Pattern: for "real" datasets with $n$ in the thousands, the rule
-picks an upper bound a bit above $K_{\text{true}}$, which is the
-right shape for an exhaustive search grid in `auto_select_mixture`.
-On the small iris case it hits the `K_hard_max=15` ceiling — expected,
-since the relative gains never drop below 2% on a clean 4-D dataset;
-relax `epsilon` if that bothers you.
-
-### 2.3 API
-
-```python
-from estimate_k_range import estimate_k_range
-
-est = estimate_k_range(
-    X,
-    min_cluster_size=10,
-    k_hard_max=100,
-    epsilon=0.02,
-    patience=3,
-    n_runs=20,
-    random_state=0,
-)
-print(est.K_min, est.K_max)            # (2, K_max)
-print(est.gain_summary[:10])           # first 10 q75 gains
-print(est.K_hard_max)                  # actual cap used
-```
-
-The returned `KRangeEstimate` dataclass also keeps the full
-`(n_runs, K_hard_max)` inertia and gain tables, in case you want to
-visualise the elbow.
-
-### 2.4 CLI
-
-```bash
-python tools/estimate_k_range.py digits
-# → K_grid = [2, 24]   (K_hard_max=100, epsilon=0.020, patience=3)
-```
-
-### 2.5 Integration with `auto_select_mixture`
-
-`auto_select_mixture(X)` accepts `K_grid=None` (the default), which
-triggers a single `estimate_k_range(X)` call to choose the grid:
-
-```python
-from auto_mixture import auto_select_mixture
-
-# Old explicit grid:
-res = auto_select_mixture(X, K_grid=range(2, 16))
-
-# New default — estimates K_grid from X via kmeans++ elbow:
-res = auto_select_mixture(X)
-```
-
-Same flag exists in the CLI: omit `--k-min` and `--k-max` and the
-grid is estimated.
-
-### 2.6 Why this is principled (and what the gains *mean*)
-
-A kmeans++ seeding inertia drop $g_K$ is a **lower bound** on the
-inertia drop of a fully-EM-trained K-means at the same K (kmeans++
-seeding gives a $O(\log K)$-competitive initial state; Lloyd's
-iterations only improve it). So if even the cheap seeding stops
-gaining ≥ 2% per cluster for several K in a row, no honest
-clustering at higher K is going to fit *meaningfully* better.
-
-Calling out three knobs for the curious:
-
-- **`epsilon = 0.02`**: the threshold for "negligible". 2% is the
-  practical conservative pick; tighter (1%) lets the grid grow
-  further; looser (5%) cuts the grid faster.
-- **`patience = 3`**: how many consecutive flat steps trigger the
-  stop. 3 prevents a single low-gain K from cutting the grid in the
-  middle of a multi-step plateau-then-recovery pattern.
-- **`R = 20`**: trades runtime for stability of the q75 estimator.
-  Below ~10 the q75 is jittery; above ~30 the marginal gain is small.
-  Stable K relative to seed is already a sign of good clustering.
 
 ## See also
 
