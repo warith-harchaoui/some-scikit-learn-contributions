@@ -1,3 +1,5 @@
+# Authors: The scikit-learn developers
+# SPDX-License-Identifier: BSD-3-Clause
 """High-Dimensional Data Clustering (HDDC).
 
 A family of parsimonious Gaussian mixture models for clustering in

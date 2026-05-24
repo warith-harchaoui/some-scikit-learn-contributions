@@ -1,3 +1,5 @@
+# Authors: The scikit-learn developers
+# SPDX-License-Identifier: BSD-3-Clause
 """Tests for ``HighDimensionalGaussianMixture``.
 
 Deliberately slim: this suite pins the public contract of the new

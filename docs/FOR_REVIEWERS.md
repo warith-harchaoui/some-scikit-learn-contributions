@@ -123,11 +123,11 @@ mass remains. For small `nu` (heavy tails) and modest `n log n`, the
 log-likelihood gain dominates the parameter penalty for many
 candidate `K`'s, so BIC keeps adding components.
 
-Crucially, the added components do not correspond to "real
-clusters" in any meaningful sense - they are an artifact of
-approximating one Student's heavy tail with several Gaussian humps
-of different scales. From a density-estimation standpoint, BIC's
-choice is reasonable; from a clustering standpoint, it is wrong.
+The added components don't correspond to "real clusters" — they
+are an artifact of approximating one Student's heavy tail with
+several Gaussian humps of different scales. From a density-
+estimation standpoint, BIC's choice is reasonable; from a
+clustering standpoint, it is wrong.
 
 ### 3.3 Why ICL stops
 

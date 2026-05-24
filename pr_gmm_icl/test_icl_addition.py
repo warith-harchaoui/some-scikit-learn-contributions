@@ -1,3 +1,5 @@
+# Authors: The scikit-learn developers
+# SPDX-License-Identifier: BSD-3-Clause
 """Tests to add to ``sklearn/mixture/tests/test_gaussian_mixture.py``.
 
 Five lightweight, deterministic tests that pin the public contract

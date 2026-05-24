@@ -1,3 +1,5 @@
+# Authors: The scikit-learn developers
+# SPDX-License-Identifier: BSD-3-Clause
 """
 Patch snippet for ``sklearn/mixture/_gaussian_mixture.py``.
 
