@@ -280,20 +280,21 @@ generating partition.
 The same pattern is visible head-to-head on real high-dimensional
 data. The two side-by-side rectangular confusion matrices below
 each put diagonal GMM and AVV HDDC at their own ICL-selected `K` on
-the same problem. The Olivetti regime (n = 100, p_pca = 99,
-K_true = 10) is where the parsimony gap is sharpest: AVV HDDC
-recovers K = 10 exactly while diagonal GMM ICL-collapses to K = 4
-and merges several true classes into the same cluster — diagonal
-GMM has nowhere to put per-cluster feature correlation except into
-either too few or too many clusters, and in the `n ≤ p` regime it
-prefers too few. On digits (`load_digits`, p = 64, K_true = 10),
-both methods saturate the K-grid ceiling (K = 20), with HDDC's
-clusters marginally purer per row; the dataset is large and benign
-enough that the choice between families matters less than the
-choice of K-grid. Both figures are reproducible via
-`python figures/figures_hddc.py` (or `python figures/make_all.py` to regenerate everything).
+the same problem. The Olivetti regime — 10 people from
+`fetch_olivetti_faces` at raw 4096-dim pixels, `n = 100`,
+`K_true = 10` is where the parsimony gap is sharpest:
+AVV HDDC recovers `K = 10` exactly while diagonal GMM ICL-collapses
+to a much smaller `K` and merges several true classes into the same
+cluster, because diagonal GMM has nowhere to put per-cluster feature
+correlation in the `n << p` regime. On digits (`load_digits`, `p = 64`,
+`K_true = 10`), both methods saturate the K-grid ceiling (`K = 20`),
+with HDDC's clusters marginally purer per row; the dataset is large
+and benign enough that the choice between families matters less than
+the choice of K-grid. Both figures are reproducible via
+`python figures/figures_hddc.py` (or `python figures/make_all.py` to
+regenerate everything).
 
-![Olivetti faces (10 people after PCA→99, n=100): GMM(diag) ICL-collapses to K=4 and merges true classes; AVV HDDC recovers K_true=10. The n ≤ p regime amplifies the parsimony gap.](../figures/fig_real_hddc_olivetti_cm_icl.png)
+![Olivetti faces (10 people, raw 4096-dim pixels, n=100, K_true=10): GMM(diag) ICL-collapses to a small K and merges true classes; AVV HDDC recovers K_true=10. The n << p regime amplifies the parsimony gap.](../figures/fig_real_hddc_olivetti_cm_icl.png)
 
 ![Digits (load_digits, p=64, K_true=10): both GMM(diag) and AVV HDDC saturate the K-grid ceiling at K=20; per-cluster purity is comparable.](../figures/fig_real_hddc_digits_cm_icl.png)
 
