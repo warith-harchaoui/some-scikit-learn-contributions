@@ -62,10 +62,18 @@ the same information-criterion story (`bic` and `icl` together).
 │   ├── INFORMATION_CRITERIA.md        <- why BIC and ICL (not held-out) + ICL sign convention + PSNC y-axis
 │   └── HDDC.md                        <- naming schemes + Bouveyron Table 1 audit + Cattell scree rule for d_k
 │
-└── tools/                             <- downstream personal code (NOT in PR)
-    ├── README.md                      <- auto_select_mixture + estimate_k_range docs
-    ├── auto_mixture.py                <- auto_select_mixture: argmin-criterion across 4 GMM + 14 HDDC × K_grid (+ CLI)
-    └── estimate_k_range.py            <- kmeans++ elbow rule that picks K_grid for auto_mixture (+ CLI)
+├── tools/                             <- downstream personal code (NOT in PR)
+│   ├── README.md                      <- auto_select_mixture + estimate_k_range docs
+│   ├── auto_mixture.py                <- auto_select_mixture: argmin-criterion across 4 GMM + 14 HDDC × K_grid (+ CLI)
+│   └── estimate_k_range.py            <- kmeans++ elbow rule that picks K_grid for auto_mixture (+ CLI)
+│
+└── hdclassif_parity/                  <- numerical parity check vs HDclassif (R reference)
+    ├── README.md                      <- pipeline overview + how to run
+    ├── 01_prepare_data.py             <- writes per-dataset X + shared KMeans init labels
+    ├── 02_run_r_hdclassif.R           <- R: fits HDclassif::hddc(), dumps CSVs
+    ├── 03_run_python_hddc.py          <- Py: fits local HDDC, dumps CSVs (same shape)
+    ├── 04_compare.py                  <- Hungarian-aligns clusters, writes report.md (PSNC-normalised)
+    └── report.md                      <- generated parity table + analysis
 ```
 
 **Repo organisation rule.** Everything in `pr_*/`, `figures/`, and
@@ -137,6 +145,22 @@ selection matters even more in the Small-Data regime
 (`n << p`); HDDC exposes `bic` and `icl` out of the box so both the
 family **and** the number of clusters can be picked with the right
 criterion.
+
+The implementation has a **numerical parity check against the
+reference R implementation** ([`HDclassif`](https://CRAN.R-project.org/package=HDclassif))
+in [`hdclassif_parity/`](hdclassif_parity/): the two implementations
+are given the same data, the same KMeans init, and the same Cattell
+threshold, then run a single EM pass; the comparison script
+Hungarian-matches clusters and diffs every fitted parameter, with
+PSNC-normalised scalar deltas (see
+[`docs/INFORMATION_CRITERIA.md`](docs/INFORMATION_CRITERIA.md) §3).
+The current report (`hdclassif_parity/report.md`) shows
+**bit-equivalent numerical agreement** on the synthetic mixtures
+and on Olivetti faces in the `n << p` regime (p=4096), validating
+the SVD-of-data-matrix path and the HDclassif-aligned noise-variance
+formula. Remaining mismatches on a handful of rows are documented
+HDclassif conventions (global-covariance Cattell on E-suffix `d`
+models), not implementation bugs.
 
 ## License
 

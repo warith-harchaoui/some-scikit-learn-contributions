@@ -576,27 +576,111 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
     # Model-constraint projection in the M-step
     # ------------------------------------------------------------------ #
 
+    def _compute_global_signal_dim(self, X: np.ndarray) -> Optional[int]:
+        """Common signal dim from the *global* scatter, à la HDclassif.
+
+        Only meaningful when the resolved sub-model has ``d == "E"``
+        (tied signal dimension across clusters) and the user did not
+        force ``signal_dim``. Returns ``None`` in every other case;
+        callers must check.
+
+        The computation mirrors ``HDclassif::hddc_main``: form the
+        global covariance from the *single* dataset mean (not
+        per-cluster), eigendecompose it, then apply the same Cattell
+        rule the M-step uses on per-cluster eigenvalues. The SVD-of-
+        data-matrix path is selected when ``p > n`` to avoid an
+        expensive ``p x p`` eigendecomposition.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+
+        Returns
+        -------
+        d : int or None
+            Forced common signal dim if computed, else ``None``.
+        """
+        _, _, d_axis = self._geometric_model_
+        # Not a tied-d model, or user forced d: nothing to do.
+        if d_axis != "E" or self.signal_dim is not None:
+            return None
+
+        n, p = X.shape
+        Xc = X - X.mean(axis=0, keepdims=True)
+        if p > n:
+            # Same SVD trick as the M-step: cheaper than forming the
+            # p x p covariance when p > n.
+            _, s, _ = np.linalg.svd(Xc, full_matrices=False)
+            eigvals = np.zeros(p)
+            eigvals[: s.size] = (s * s) / n
+            rank_eff = s.size
+        else:
+            cov = (Xc.T @ Xc) / n
+            cov = 0.5 * (cov + cov.T) + _EPS * np.eye(p)
+            eigvals_asc, _ = linalg.eigh(cov)
+            eigvals = eigvals_asc[::-1]
+            rank_eff = p
+
+        d = cattell_scree_test(eigvals[:rank_eff], self.cattell_threshold)
+        return max(1, min(int(d), rank_eff - 1, p - 1))
+
     def _apply_model_constraints(self) -> None:
         """Project parameters onto the resolved sub-model's constraints.
 
         Reads ``self._geometric_model_`` (3-letter code). Each letter
         triggers one of the constraint sub-steps.
+
+        Ordering matters: ``d`` is collapsed first so the noise step
+        sees the final per-cluster signal dimensions; the noise step
+        recomputes ``b_k`` from the per-cluster eigenvalues using
+        HDclassif's formula (trace minus signal mass, divided by the
+        full noise subspace dimension), then ties it across clusters
+        if ``noise == "E"``.
         """
         s, n, d = self._geometric_model_
+        p = self.n_features_in_
 
-        # 1) signal dimension regime
+        # 1) signal dimension regime — must run first so the noise
+        #    computation below sees the right ``d_k`` (e.g. when the
+        #    user forced ``signal_dim`` on an E-suffix model).
         if d == "E":
-            # Common d across clusters.
             if self.signal_dim is not None:
                 shared = int(self.signal_dim)
+            elif getattr(self, "_global_signal_dim_", None) is not None:
+                # HDclassif-aligned: use the global-covariance Cattell
+                # pick computed once in fit(), not the mean of
+                # per-cluster picks.
+                shared = int(self._global_signal_dim_)
             else:
                 shared = int(round(np.mean(self.signal_dims_)))
+            shared = max(1, min(shared, p - 1))
             self.signal_dims_ = [shared] * self.n_components
 
-        # 2) noise regime
+        # 2) noise regime — first recompute per-cluster ``b_k`` from
+        #    the *current* eigenvalues and (possibly collapsed) ``d_k``;
+        #    then, if tied, apply HDclassif's mixing-proportion-weighted
+        #    formula:
+        #        b_tied = Σ_k π_k (trace_k − sum signal_k)
+        #                 ─────────────────────────────────
+        #                          p − Σ_k π_k d_k
+        weighted_noise_mass = 0.0
+        weighted_d = 0.0
+        for k in range(self.n_components):
+            dk = self.signal_dims_[k]
+            trace_k = float(np.sum(self.eigenvalues_[k]))
+            signal_sum = float(np.sum(self.eigenvalues_[k][:dk]))
+            noise_mass = max(trace_k - signal_sum, 0.0)
+            if dk < p:
+                self.noise_variances_[k] = max(noise_mass / (p - dk), _EPS)
+            else:  # pragma: no cover
+                self.noise_variances_[k] = _EPS
+            weighted_noise_mass += self.weights_[k] * noise_mass
+            weighted_d += self.weights_[k] * dk
+
         if n == "E":
-            avg = float(np.mean(self.noise_variances_))
-            self.noise_variances_ = np.full(self.n_components, avg)
+            denom = max(p - weighted_d, _EPS)
+            b_tied = max(weighted_noise_mass / denom, _EPS)
+            self.noise_variances_ = np.full(self.n_components, b_tied)
 
         # 3) signal-eigenvalue regime
         if s == "A":
@@ -802,6 +886,18 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         self._resolve_model()
         X = validate_data(self, X, dtype=np.float64, ensure_min_samples=2)
         n, p = X.shape
+
+        # Compute the global common signal dimension once, up-front,
+        # when the resolved sub-model uses a tied d ("E" suffix) and
+        # the user did not force ``signal_dim``. This mirrors
+        # HDclassif's behaviour: on the *D family it eigendecomposes
+        # the **global** scatter matrix (one mean across all data,
+        # not per-cluster), applies the Cattell scree rule once, and
+        # locks the resulting common dimension for every EM
+        # iteration. Averaging per-cluster Cattell picks (the
+        # previous approach) gave systematically different d's on
+        # high-K datasets like digits.
+        self._global_signal_dim_ = self._compute_global_signal_dim(X)
 
         # Feasibility check: the steal mechanism in _m_step can only
         # satisfy ``K * min_cluster_size <= n``. If the requested

@@ -538,35 +538,50 @@ mixture-model code (`HDclassif`, `mclust` variants).
 ### 3.2 The algorithmic rule we ship
 
 Given the sorted (non-increasing) eigenvalues
-`(lambda_1, ..., lambda_p)` of a single cluster's empirical covariance
-and a sensitivity parameter `threshold in (0, 1)`, return
+`(lambda_1, ..., lambda_p)` of a single cluster's empirical covariance,
+a sensitivity parameter `threshold in (0, 1)`, and a noise floor
+`noise_ctrl > 0`, return
 
 ```
-Delta_i = |lambda_i - lambda_{i+1}|        for i = 1, ..., p - 1
-i_max   = argmax_i Delta_i
-d_k     = first i >= i_max such that Delta_i < threshold * max_i Delta_i
-       = p - 1                              if no such i exists
-       (clamped to be at least 1)
+Delta_i  = |lambda_i - lambda_{i+1}|         for i = 1, ..., p - 1
+norm_i   = Delta_i / max_j Delta_j           normalised drop
+elig_i   = (norm_i > threshold) AND (lambda_{i+1} > noise_ctrl)
+d_k      = max { i : elig_i }                largest eligible index
+        = 1                                  if no i is eligible
 ```
 
-In words: find the steepest drop in the scree plot, then walk forward
-until the drops fall below a fraction `threshold` of that maximum —
-that index is the elbow.
+In words: the elbow is the **largest** index where (a) the normalised
+drop exceeds `threshold` and (b) the next eigenvalue stays above the
+noise floor. This is intentionally permissive: it can pick `d_k` well
+past the first below-threshold dip when a later drop also exceeds the
+threshold.
+
+This is a direct port of the algorithm shipped in the R package
+`HDclassif` ([HDclassif]_). The Python implementation reproduces
+HDclassif fits exactly when the threshold and noise floor are
+matched. See the parity check in `hdclassif_parity/` for the
+numerical evidence.
 
 Code in `_hddc.py::cattell_scree_test`:
 
 ```python
-def cattell_scree_test(eigvals, threshold=0.5):
+def cattell_scree_test(eigvals, threshold=0.5, noise_ctrl=1e-8):
     eigvals = np.asarray(eigvals, dtype=float)
-    diffs = np.abs(np.diff(eigvals))
+    p = eigvals.size
+    if p <= 2:
+        return 1
+    diffs = np.abs(np.diff(eigvals))           # length p - 1
     max_diff = float(np.max(diffs))
     if max_diff == 0.0:
         return 1
-    start = int(np.argmax(diffs))
-    for i in range(start, len(eigvals) - 1):
-        if diffs[i] < threshold * max_diff:
-            return max(1, i)
-    return max(1, len(eigvals) - 1)
+    norm_diffs = diffs / max_diff              # in [0, 1]
+    eligible = (norm_diffs > threshold) & (eigvals[1:] > noise_ctrl)
+    if not eligible.any():
+        return 1
+    # Position weights are monotone in i, so argmax picks the
+    # largest eligible index (the "last big drop above the noise").
+    weights = np.arange(1, p) * eligible
+    return int(np.argmax(weights)) + 1
 ```
 
 ### 3.3 What `threshold` controls
@@ -588,11 +603,8 @@ Practical reading of `threshold`:
 The two papers that introduced HDDC (Bouveyron, Girard & Schmid, 2007
 [Bouveyron2007]_) and Cattell's original scree test (Cattell, 1966
 [Cattell66]_) do not numerically prescribe a `threshold`. The `0.2`
-value originates in the `HDclassif` R package source ([HDclassif]_).
-We ship `0.5` as a more forgiving default: `d(t)` is flat across
-`[0.3, 0.8]` whenever the spectrum has a clear signal/noise gap,
-so `0.5` sits in the middle of the invariant plateau and
-empirically selects more reasonable `d_k` on the datasets we tested.
+value originates in the `HDclassif` R package source ([HDclassif]_);
+we use a different *default* (see §3.6) but the same *algorithm*.
 
 ### 3.4 Why this matters for model selection
 
@@ -649,22 +661,47 @@ automated scree-test variants. We considered each and rejected:
 | **BIC over `d_k`** | Fit each `d_k in 1..p-1` and pick by BIC inside the M-step | Doubles the inner-loop cost; redundant with the outer BIC over `(K, model)`; also incompatible with the original paper's empirical setup |
 | **Parallel analysis** (Horn 1965) | Permutation-based simulation of null eigenvalues | Cost in the EM loop is prohibitive |
 
-The relative-drop rule shipped here is **not** one of the four Raiche
-variants and does **not** appear in the peer-reviewed literature on
-non-graphical scree tests. It is an implementation choice carried
-over from the `HDclassif` R package source code (Berge, Bouveyron &
-Girard, 2012 [HDclassif]_). The accompanying `HDclassif` paper
-mentions the `threshold` parameter and its default but does not spell
-out the algorithm; the `HDclassif` help page documents its default
-(`0.2`) but again not the rule. The `nFactors` R package — the
-canonical implementation of Raiche's variants — does *not* include
-this rule.
+The rule shipped here is **not** one of the four Raiche variants and
+does **not** appear in the peer-reviewed literature on non-graphical
+scree tests. It is a direct port of the algorithm shipped in the
+`HDclassif` R package source code (Berge, Bouveyron & Girard, 2012
+[HDclassif]_) — same normalisation, same `noise.ctrl` floor, same
+"largest eligible index" selection. The accompanying `HDclassif`
+paper mentions the `threshold` parameter and its default but does
+not spell out the algorithm; the `HDclassif` help page documents its
+default (`0.2`) but again not the rule. The `nFactors` R package —
+the canonical implementation of Raiche's variants — does *not*
+include this rule.
 
-We keep it as the default for three reasons: (i) reproducibility with
-`HDclassif`; (ii) it is the cheapest of the candidates; (iii) it is
-the only one that has a tunable sensitivity parameter, which matters
-because the scree test enters BIC and ICL through `_n_parameters` and
-the practitioner needs a knob.
+We keep it for three reasons: (i) bit-equivalent reproducibility
+with `HDclassif` (verified in `hdclassif_parity/`); (ii) it is the
+cheapest of the candidates; (iii) it is the only one with a tunable
+sensitivity parameter, which matters because the scree test enters
+BIC and ICL through `_n_parameters` and the practitioner needs a
+knob.
+
+#### Default threshold
+
+We ship `cattell_threshold=0.5` rather than HDclassif's `0.2`. This
+is a **UX choice that does not change the algorithm**: the rule is
+identical bit-for-bit, only the sensitivity differs. `d(t)` is flat
+across `[0.3, 0.8]` whenever the spectrum has a clear signal/noise
+gap, so `0.5` sits in the middle of the invariant plateau and
+empirically selects more reasonable `d_k` on the datasets we
+tested. To reproduce HDclassif's defaults exactly, set
+`cattell_threshold=0.2`.
+
+#### Common ``d`` from the global scatter (E-suffix models)
+
+For sub-models with a tied signal dimension across clusters (the
+eight `*E` codes — codes ending in E in the geometric scheme, `*_d`
+in the paper bracket), the same Cattell rule is applied **once** to
+the eigenvalues of the *global* scatter matrix (one dataset mean,
+not per-cluster), computed at the top of `fit()`. The resulting `d`
+is locked for every EM iteration. This mirrors HDclassif's
+behaviour and avoids the drift that an "average of per-cluster
+Cattell picks" can produce on high-`K` datasets. Setting
+`signal_dim` overrides this entirely.
 
 ### 3.7 What we expose to the user
 
