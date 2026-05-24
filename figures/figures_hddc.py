@@ -29,7 +29,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _style import (                                            # noqa: E402
     PALETTE, ROLE, CMAP_PURPLE,
     use_house_style,
-    per_sample_nats_criterion, PSNC_YLABEL, draw_psnc_anchors,
 )
 from _icl_compat import icl_gmm as _icl_for_gmm                 # noqa: E402
 
@@ -991,7 +990,7 @@ def demo_hddc_olivetti(n_people: int = 10) -> list:
     X_all, y_all = faces.data, faces.target
     mask = y_all < n_people
     X, y = X_all[mask].astype(float), y_all[mask]
-    log.info(f"  n={X.shape[0]}, p={X.shape[1]} (raw pixels, no PCA), "
+    log.info(f"  n={X.shape[0]}, p={X.shape[1]} (raw pixels), "
              f"K_true={n_people}")
     K_true = n_people
     K_grid = [4, 6, 8, 10, 12, 14]

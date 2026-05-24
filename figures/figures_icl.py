@@ -24,7 +24,7 @@ log = logging.getLogger("figures_icl")
 # Local style module + shared ICL-on-GMM compat helper.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _style import (                                            # noqa: E402
-    PALETTE, ROLE, CMAP_PURPLE,
+    ROLE,
     use_house_style,
     per_sample_nats_criterion, PSNC_YLABEL, draw_psnc_anchors,
 )

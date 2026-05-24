@@ -107,8 +107,7 @@ _4/4 sub-models pass strict tolerance._
 ## Scope
 
 The parity set covers two seeded synthetic mixtures (with and
-without `n << p`) and raw Olivetti faces (`n=100, p=4096`, no
-PCA). Each is a setting where bit-equivalent agreement with
+without `n << p`) and raw Olivetti faces (`n=100, p=4096`). Each is a setting where bit-equivalent agreement with
 HDclassif is the right pass/fail bar — the EM trajectory is
 short enough and the data clean enough that NumPy/LAPACK and
 Rcpp/Eigen produce numerically identical fits.

@@ -133,9 +133,19 @@ parameterization.
 conflate PCA and HDDC in the comparison; the SVD path in the M-step
 makes the raw fit tractable. This is the regime that motivates HDDC.
 
-![Olivetti, K selected by ICL: GMM(diag) collapses to K=4 and merges true classes; AVV HDDC recovers K_true=10.](../figures/fig_real_hddc_olivetti_cm_icl.png)
-![Olivetti, K known (oracle K=10): GMM and HDDC are comparable per-cluster — the gap shows up in K-selection, not fit.](../figures/fig_real_hddc_olivetti_cm_known.png)
-![Olivetti: K selected by ICL per method vs the oracle K=10. HDDC nails K_true; diagonal GMM picks K=4.](../figures/fig_real_hddc_olivetti_K.png)
+At K known (oracle K = 10) the two methods score similarly on
+hard-label metrics (GMM(diag): NMI 0.64 / ARI 0.38 / ACC 0.55; HDDC(AVV):
+NMI 0.62 / ARI 0.37 / ACC 0.53). The difference shows up under
+K-selection: **HDDC(AVV)'s ICL-selected K = 14 lifts NMI to 0.72 and
+ACC to 0.66**, while **diagonal GMM collapses to K = 6 and drops to
+NMI 0.52 / ACC 0.47** — diagonal GMM has nowhere to put per-cluster
+feature correlation in the `n << p` regime, so it merges true
+classes rather than splitting them. The joint ICL winner across the
+two families is HDDC(AVV) at K = 14.
+
+![Olivetti, K selected by ICL: GMM(diag) collapses to K=6 (NMI 0.52); AVV HDDC over-picks to K=14 but recovers most class structure (NMI 0.72).](../figures/fig_real_hddc_olivetti_cm_icl.png)
+![Olivetti, K known (oracle K=10): GMM and HDDC are comparable per-cluster — the gap shows up under K-selection, not fit.](../figures/fig_real_hddc_olivetti_cm_known.png)
+![Olivetti: ICL-selected K per method vs the oracle K=10. HDDC over-picks to K=14; diagonal GMM collapses to K=6.](../figures/fig_real_hddc_olivetti_K.png)
 ![Olivetti: NMI / ARI / ACC bars for both methods, K known and K ICL-selected.](../figures/fig_real_hddc_olivetti_metrics.png)
 
 #### Digits — the `n >> p` regime

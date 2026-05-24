@@ -12,13 +12,11 @@ the canonical R implementation numerically?"* — not in spirit, not
 in a passing-test-suite sense, but **on the same data, from the same
 init, parameter-by-parameter**.
 
-The current verdict (see [`report.md`](report.md)) is **yes on every
-case where exact agreement is reasonable to expect**: synthetic
-mixtures, Olivetti faces in the `n << p` regime, and every
-forced-`d_k` configuration. The remaining mismatches are documented
-HDclassif conventions (in particular, HDclassif computes the
-common signal dimension once from the **global** covariance on
-E-suffix `d` models), not implementation bugs.
+The current verdict (see [`report.md`](report.md)) is **yes — all
+12 / 12 sub-model fits pass strict bit-equivalent tolerance**:
+both synthetic mixtures, raw Olivetti at `p = 4096`, and every
+forced-`d_k` configuration. ΔPSNC on BIC and log-likelihood is
+under `10⁻⁵` % of the uniform-random baseline on every row.
 
 ## Pipeline
 
@@ -48,7 +46,7 @@ narrative discussion.
 | --- | ---: | ---: | ---: | --- |
 | `synth_lowdim` | 600 | 5 | 3 | benign baseline — exact agreement is the bar |
 | `synth_highdim` | 200 | 30 | 4 | structured low-rank cov, `n < 10·p` |
-| `olivetti` | 100 | 4096 | 10 | the `n << p` regime, raw pixels (no PCA) — tests the SVD-of-data-matrix path |
+| `olivetti` | 100 | 4096 | 10 | the `n << p` regime, raw pixels — tests the SVD-of-data-matrix path |
 
 Olivetti is deliberately **not** PCA-projected: PCA would conflate
 PCA and HDDC in the diff. The raw 4096-dim run exercises HDDC's

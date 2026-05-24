@@ -24,11 +24,8 @@ The script writes three datasets:
 * ``synth_lowdim``  — small synthetic mixture, easy regime.
 * ``synth_highdim`` — synthetic ``n << p`` mixture, the regime HDDC
                        was designed for.
-* ``olivetti``      — first 10 people from ``fetch_olivetti_faces``,
-                       **no PCA**: n=100, p=4096. Tests HDDC on its
+* ``olivetti``      — first 10 people from ``fetch_olivetti_faces``: n=100, p=4096. Tests HDDC on its
                        intended ``n << p`` regime with real input.
-                       PCA would test PCA+HDDC parity, not HDDC
-                       parity, so we deliberately keep raw pixels.
 
 Examples
 --------
@@ -38,7 +35,7 @@ Run from the repo root:
     Writing parity-check datasets to: .../hdclassif_parity/data
       synth_lowdim   n=600  p=5   K=3  ...
       ...
-      olivetti       n=100  p=99  K=10 ...
+      olivetti       n=100  p=4096  K=10 ...
     done.
 
 Then run ``Rscript 02_run_r_hdclassif.R`` and the Python equivalent.
@@ -283,13 +280,11 @@ def _write_dataset(
 def _load_olivetti_raw(n_people: int = 10) -> np.ndarray:
     """Return the raw 4096-dim Olivetti faces for the first ``n_people``.
 
-    No PCA, no standardisation — just the 64×64 grayscale images
-    flattened to ``p = 4096`` features. Each person contributes 10
+    64×64 grayscale images flattened to ``p = 4096`` features. Each person contributes 10
     images, so ``n = 10 * n_people``.
 
     This is the regime HDDC was built for (``n << p``); the parity
-    check intentionally tests HDDC on raw input, since any
-    pre-projection would conflate PCA and HDDC in the diff.
+    check intentionally tests HDDC on raw input.
 
     Parameters
     ----------
@@ -311,7 +306,7 @@ def main() -> None:
     """Write all three parity datasets to ``data/``.
 
     Two synthetic mixtures (easy + ``n << p``) and raw Olivetti
-    faces (no PCA). Each is a setting where bit-equivalent
+    faces. Each is a setting where bit-equivalent
     agreement with HDclassif is the right bar.
     """
     print("Writing parity-check datasets to:", DATA)
@@ -325,7 +320,7 @@ def main() -> None:
     X, _ = _synth_mixture(n_per=50, p=30, K=4, signal_dim=4, rng=2)
     _write_dataset("synth_highdim", X, K=4)
 
-    # 3. Raw Olivetti faces, 10 people, no PCA: n=100, p=4096.
+    # 3. Raw Olivetti faces, 10 people: n=100, p=4096.
     #    Tests HDDC in its intended n << p regime on real input.
     X_oliv = _load_olivetti_raw(n_people=10)
     _write_dataset("olivetti", X_oliv, K=10)
