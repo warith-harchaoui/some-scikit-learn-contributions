@@ -114,6 +114,9 @@ output. Figures land alongside the scripts as PNGs.
   ([`docs/INFORMATION_CRITERIA.md`](docs/INFORMATION_CRITERIA.md),
   [`docs/HDDC.md`](docs/HDDC.md))
   are pulled in by cross-references where the math needs to be exact.
+- **Numerical parity vs. R**: [`hdclassif_parity/README.md`](hdclassif_parity/README.md)
+  + the generated [`hdclassif_parity/report.md`](hdclassif_parity/report.md)
+  (12/12 sub-model fits bit-equivalent against `HDclassif::hddc()`).
 - **Downstream tooling** (independent of the sklearn PRs):
   [`tools/README.md`](tools/README.md).
 
