@@ -33,8 +33,6 @@ estimator installed.
 """
 # %%
 # Imports
-import logging
-
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
@@ -43,14 +41,11 @@ from sklearn.datasets import load_digits
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 from sklearn.mixture import GaussianMixture, HighDimensionalGaussianMixture
 
-log = logging.getLogger("plot_hddc_digits")
-logging.basicConfig(level=logging.INFO, format="%(message)s")
-
 
 # %%
 # Data
 X, y = load_digits(return_X_y=True)
-log.info(f"n_samples = {X.shape[0]}, n_features = {X.shape[1]}, "
+print(f"n_samples = {X.shape[0]}, n_features = {X.shape[1]}, "
       f"true K = {len(np.unique(y))}")
 
 
@@ -122,11 +117,11 @@ unknown = {
     "GMM (diag)": evaluate(best_gmm, X, y),
     "HDDC (AVV)": evaluate(best_hgmm, X, y),
 }
-log.info(f"GMM   K-known  NMI/ARI/ACC = {known['GMM (diag)']}")
-log.info(f"HDDC  K-known  NMI/ARI/ACC = {known['HDDC (AVV)']}")
-log.info(f"GMM   K*={best_gmm.n_components} ICL NMI/ARI/ACC = "
+print(f"GMM   K-known  NMI/ARI/ACC = {known['GMM (diag)']}")
+print(f"HDDC  K-known  NMI/ARI/ACC = {known['HDDC (AVV)']}")
+print(f"GMM   K*={best_gmm.n_components} ICL NMI/ARI/ACC = "
       f"{unknown['GMM (diag)']}")
-log.info(f"HDDC  K*={best_hgmm.n_components} ICL NMI/ARI/ACC = "
+print(f"HDDC  K*={best_hgmm.n_components} ICL NMI/ARI/ACC = "
       f"{unknown['HDDC (AVV)']}")
 
 # %%

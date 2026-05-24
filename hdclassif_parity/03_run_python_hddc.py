@@ -230,7 +230,7 @@ def fit_one(
     # --- Scalars ---------------------------------------------------------
     _save(out_prefix + "bic.csv", [fit.bic(X)])
     _save(out_prefix + "icl.csv", [_icl_of(fit, X)])
-    _save(out_prefix + "loglik.csv", [fit.log_likelihood_])
+    _save(out_prefix + "loglik.csv", [fit.lower_bound_])
     _save(out_prefix + "n_parameters.csv", [fit._n_parameters()], fmt="%d")
 
     # --- Per-cluster scalars --------------------------------------------
@@ -264,7 +264,9 @@ def fit_one(
 
     # --- Labels and responsibilities ------------------------------------
     _save(out_prefix + "labels.csv", fit.labels_.astype(int), fmt="%d")
-    _save(out_prefix + "responsibilities.csv", fit.responsibilities_)
+    # Recompute responsibilities via predict_proba: HDDC follows
+    # GaussianMixture's convention of not storing them on the fit.
+    _save(out_prefix + "responsibilities.csv", fit.predict_proba(X))
 
 
 # ---------------------------------------------------------------------------

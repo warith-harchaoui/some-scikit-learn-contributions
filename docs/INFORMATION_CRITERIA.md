@@ -721,25 +721,25 @@ $$
 
 ## References
 
-.. [Baudry2010] Baudry, J.-P., Raftery, A. E., Celeux, G., Lo, K., &
+[Baudry2010] Baudry, J.-P., Raftery, A. E., Celeux, G., Lo, K., &
    Gottardo, R. (2010). Combining mixture components for clustering.
    *Journal of Computational and Graphical Statistics*, 19(2), 332-353.
 
-.. [BCG2000] Biernacki, C., Celeux, G., & Govaert, G. (2000).
+[BCG2000] Biernacki, C., Celeux, G., & Govaert, G. (2000).
    Assessing a mixture model for clustering with the integrated
    completed likelihood. *IEEE TPAMI*, 22(7), 719-725.
 
-.. [KR95] Kass, R. E., & Raftery, A. E. (1995). Bayes Factors.
+[KR95] Kass, R. E., & Raftery, A. E. (1995). Bayes Factors.
    *Journal of the American Statistical Association*, 90(430),
    773-795.
 
-.. [Schwarz78] Schwarz, G. (1978). Estimating the dimension of a
+[Schwarz78] Schwarz, G. (1978). Estimating the dimension of a
    model. *Annals of Statistics*, 6(2), 461-464.
 
-.. [VGG17] Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical
+[VGG17] Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical
    Bayesian model evaluation using leave-one-out cross-validation
    and WAIC. *Statistics and Computing*, 27(5), 1413-1432.
 
-.. [Arlot10] Arlot, S., & Celisse, A. (2010). A survey of
+[Arlot10] Arlot, S., & Celisse, A. (2010). A survey of
    cross-validation procedures for model selection. *Statistics
    Surveys*, 4, 40-79.

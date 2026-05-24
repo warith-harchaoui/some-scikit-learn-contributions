@@ -64,12 +64,9 @@ HighDimensionalGaussianMixture = _draft_hddc.HighDimensionalGaussianMixture
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-def _icl_gmm(gmm: GaussianMixture, X: np.ndarray) -> float:
-    """ICL = BIC + 2 H for a fitted GaussianMixture (lower = better)."""
-    _, log_resp = gmm._estimate_log_prob_resp(X)
-    resp = np.exp(log_resp)
-    entropy = -np.nansum(resp * log_resp)
-    return float(gmm.bic(X) + 2 * entropy)
+# Shared compat shim — see ``figures/_icl_compat.py``. Local alias
+# preserved so existing call sites read identically.
+from _icl_compat import icl_gmm as _icl_gmm  # noqa: E402
 
 
 def _gmm_with_K(X, K, covariance_type, reg_covar, n_init, max_iter, seed=0):

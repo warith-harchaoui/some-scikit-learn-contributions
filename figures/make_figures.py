@@ -48,15 +48,15 @@ HighDimensionalGaussianMixture = _draft_hddc.HighDimensionalGaussianMixture
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _icl_for_gmm(gmm: GaussianMixture, X: np.ndarray) -> float:
-    """ICL = BIC + 2 H, lower-is-better."""
-    _, log_resp = gmm._estimate_log_prob_resp(X)
-    resp = np.exp(log_resp)
-    entropy = -np.nansum(resp * log_resp)
-    return float(gmm.bic(X) + 2 * entropy)
+# Shared compat shim — see ``figures/_icl_compat.py``. Local alias
+# preserved so existing call sites read identically.
+from _icl_compat import icl_gmm as _icl_for_gmm  # noqa: E402
 
 
 def _student_mixture_1d(true_K=3, n_per=4000, df=3, seed=42, sep=18.0):
+    """Draw a 1-D mixture of ``true_K`` location-shifted Student-``t``
+    components with ``df`` degrees of freedom and ``n_per`` samples per
+    component. Returns ``X`` of shape ``(true_K * n_per, 1)``."""
     rng = np.random.RandomState(seed)
     centers = sep * np.arange(true_K)
     samples = [
@@ -71,6 +71,12 @@ def _student_mixture_1d(true_K=3, n_per=4000, df=3, seed=42, sep=18.0):
 # ---------------------------------------------------------------------------
 
 def make_fig_icl_student() -> str:
+    """ICL vs BIC on a heavy-tailed Student-``t`` mixture.
+
+    Hero figure for the ICL PR: shows BIC over-counting components
+    on heavy-tailed data while ICL recovers the true ``K``. Writes
+    ``fig_icl_student.png`` and returns its path.
+    """
     use_house_style()
     X, centers = _student_mixture_1d(true_K=3, n_per=4000, df=3, sep=18.0)
 

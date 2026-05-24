@@ -60,7 +60,7 @@ hgmm = HighDimensionalGaussianMixture(
     random_state=0,
 ).fit(X)
 
-hgmm.bic(X), hgmm.icl(X)
+hgmm.bic(X), hgmm.aic(X), hgmm.icl(X)
 hgmm.predict(X)              # hard assignment
 hgmm.predict_proba(X)        # responsibilities
 hgmm.score_samples(X)        # log-density per sample
@@ -109,9 +109,11 @@ possible the conventions of `GaussianMixture`. Key choices:
   M-step uses `np.linalg.svd(Xc, full_matrices=False)` on the
   centered+weighted data matrix instead of forming the `p × p`
   covariance and eigendecomposing it. Cost drops from `O(p³)` to
-  `O(n² p)` — at the Olivetti scale (`n=100, p=4096`) that's roughly
-  a 1700× speedup. Without this, a single EM iteration on raw
-  Olivetti is wall-clock infeasible. HDclassif uses the same trick.
+  `O(n² p)` — at the Olivetti scale (`n=100, p=4096`, `K=10`) the
+  measured speedup is **~4800× per EM iteration** (eigh: 251 s/iter;
+  SVD: 0.05 s/iter; a complete 10-iter fit takes ~0.5 s with SVD vs.
+  > 40 min with the dense path). Without this, raw Olivetti is wall-
+  clock infeasible. HDclassif uses the same trick.
 - **Tests** cover all 14 sub-models, the `n_parameters` count against
   the paper's table, and the Student-mixture selection argument.
 

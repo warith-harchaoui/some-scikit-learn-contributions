@@ -1,5 +1,7 @@
 """Tests for ``HighDimensionalGaussianMixture``."""
 
+import math
+
 import numpy as np
 import pytest
 from scipy import stats
@@ -203,6 +205,23 @@ def test_hddc_icl_ge_bic():
         n_components=3, model="AVV", random_state=0, n_init=1,
     ).fit(X)
     assert hgmm.icl(X) >= hgmm.bic(X) - 1e-6
+
+
+def test_hddc_aic_bic_consistency():
+    """AIC = BIC formula with parameter penalty ``2·ν`` vs ``ν·log n``.
+
+    ``aic`` mirrors :meth:`sklearn.mixture.GaussianMixture.aic` and is
+    related to ``bic`` by the deterministic identity
+    ``aic - bic = ν·(2 - log n)``.
+    """
+    X, _ = _toy()
+    n = X.shape[0]
+    hgmm = HighDimensionalGaussianMixture(
+        n_components=3, model="AVV", random_state=0, n_init=1, max_iter=50,
+    ).fit(X)
+    nu = hgmm._n_parameters()
+    expected = nu * (2.0 - math.log(n))
+    assert math.isclose(hgmm.aic(X) - hgmm.bic(X), expected, rel_tol=1e-9)
 
 
 @pytest.mark.parametrize("model", _GEOMETRIC)

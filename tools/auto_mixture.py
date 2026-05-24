@@ -68,12 +68,11 @@ HDDC_MODELS = (
 )
 
 
-def _icl_gmm(gmm: GaussianMixture, X: np.ndarray) -> float:
-    """ICL = BIC + 2H for a fitted ``GaussianMixture``."""
-    _, log_resp = gmm._estimate_log_prob_resp(X)
-    resp = np.exp(log_resp)
-    entropy = -np.nansum(resp * log_resp)
-    return float(gmm.bic(X) + 2.0 * entropy)
+# Shared compat shim lives next to the figures helpers; same six
+# lines of code, one source of truth. Delete the import + alias once
+# the ``pr_gmm_icl`` PR lands and ``gmm.icl(X)`` is upstream.
+sys.path.insert(0, os.path.join(_CONTRIB, "figures"))
+from _icl_compat import icl_gmm as _icl_gmm  # noqa: E402
 
 
 def _icl_of(fit, X: np.ndarray) -> float:

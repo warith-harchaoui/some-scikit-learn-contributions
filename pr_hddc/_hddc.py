@@ -51,7 +51,7 @@ Special thanks to Pierre-Alexandre Mattei (https://pamattei.github.io/).
 
 import math
 import numbers
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from scipy import linalg
@@ -284,17 +284,39 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
     Attributes
     ----------
     weights_ : ndarray of shape (n_components,)
+        The mixing weight of each component.
     means_ : ndarray of shape (n_components, n_features)
-    eigenvalues_ : list of ndarray
-    eigenvectors_ : list of ndarray
+        The mean of each mixture component.
+    eigenvalues_ : list of ndarray of shape (n_features,)
+        Per-cluster eigenvalues of the empirical covariance,
+        sorted in non-increasing order. The first ``signal_dims_[k]``
+        entries are signal; the rest are absorbed into
+        ``noise_variances_[k]`` by the model parameterisation.
+    eigenvectors_ : list of ndarray of shape (n_features, n_features)
+        Per-cluster orthonormal basis ``Q_k``. Only the first
+        ``signal_dims_[k]`` columns are used at predict time
+        (the orthogonal complement carries isotropic ``b_k`` noise).
     signal_dims_ : list of int
+        Per-cluster intrinsic signal dimension ``d_k`` selected by
+        the Cattell scree rule (or forced via ``signal_dim`` on
+        ``*E``-dim sub-models).
     noise_variances_ : ndarray of shape (n_components,)
-    responsibilities_ : ndarray of shape (n_samples, n_components)
+        Per-cluster isotropic noise variance ``b_k``. Tied across
+        clusters when the sub-model has ``noise="equal"`` (``*E*``).
     labels_ : ndarray of shape (n_samples,)
-    log_likelihood_ : float
+        Hard cluster assignment for each training sample,
+        ``self.predict(X_train)`` at convergence.
+    lower_bound_ : float
+        Sample log-likelihood at the EM fixed point of the best
+        ``n_init`` initialisation. Matches the role of
+        :attr:`sklearn.mixture.GaussianMixture.lower_bound_`.
     n_iter_ : int
+        Number of EM iterations used by the best initialisation.
     converged_ : bool
+        ``True`` if EM converged (change in log-likelihood < ``tol``)
+        before ``max_iter`` for the best initialisation.
     n_features_in_ : int
+        Number of features seen at fit time.
     _geometric_model_ : str
         Canonical 3-letter geometric code resolved from ``model`` and
         the per-axis kwargs. Read this attribute (not ``self.model``)
@@ -760,7 +782,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         return -0.5 * (log_det + signal + noise + p * math.log(2 * math.pi))
 
     def _e_step(self, X: np.ndarray) -> float:
-        """E-step: refresh ``self.responsibilities_`` and return log L(X).
+        """E-step: refresh ``self._responsibilities`` and return log L(X).
 
         Parameters
         ----------
@@ -780,24 +802,30 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
             log_resp[:, k] = self._compute_log_density(X, k)
         log_resp = log_resp + np.log(self.weights_)
         log_norm = logsumexp(log_resp, axis=1, keepdims=True)
-        self.responsibilities_ = np.exp(log_resp - log_norm)
+        self._responsibilities = np.exp(log_resp - log_norm)
         return float(np.sum(log_norm))
 
-    def _m_step(self, X: np.ndarray) -> None:
-        n, p = X.shape
-        Nk = self.responsibilities_.sum(axis=0)
+    def _repair_cluster_sizes(self, X: np.ndarray, Nk: np.ndarray) -> np.ndarray:
+        """Reassign points until every cluster has >= ``min_cluster_size`` mass.
 
-        # Repair under-sized clusters by hard-reassigning points with
-        # the highest residual responsibility budget. Two invariants
-        # this loop maintains:
-        #   1. ``n_missing`` rounds *up* so a single iteration always
-        #      lifts ``Nk[k_min]`` strictly past ``min_cluster_size``
-        #      (otherwise sub-half-unit deficits make the loop spin).
-        #   2. stolen rows are zeroed across all clusters before being
-        #      set to 1 in ``k_min``, so row sums stay at 1 and other
-        #      clusters' Nk are accounted for correctly. The feasibility
-        #      check in ``fit`` (``K * min_cluster_size <= n``) makes
-        #      this loop terminate.
+        Repairs under-sized clusters by hard-reassigning points with
+        the highest residual responsibility budget. Mutates
+        ``self._responsibilities`` in place and returns the updated
+        ``Nk`` (column-sum vector).
+
+        Invariants:
+
+        1. ``n_missing`` rounds *up* so a single iteration always
+           lifts ``Nk[k_min]`` strictly past ``min_cluster_size``
+           (otherwise sub-half-unit deficits make the loop spin).
+        2. Stolen rows are zeroed across all clusters before being
+           set to 1 in ``k_min``, so row sums stay at 1 and other
+           clusters' ``Nk`` are accounted for correctly.
+
+        The feasibility check in ``fit`` (``K * min_cluster_size <=
+        n``) guarantees this loop terminates.
+        """
+        n = X.shape[0]
         steal_guard = 0
         while np.min(Nk) < self.min_cluster_size:
             steal_guard += 1
@@ -806,7 +834,7 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
                 # check, but it keeps a bad initialisation from spinning.
                 break
             k_min = int(np.argmin(Nk))
-            p_steal = 1.0 - self.responsibilities_[:, k_min]
+            p_steal = 1.0 - self._responsibilities[:, k_min]
             p_steal = np.clip(p_steal, _EPS, None)
             p_steal /= p_steal.sum()
             n_missing = int(math.ceil(self.min_cluster_size - Nk[k_min]))
@@ -814,57 +842,100 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
             idx = self.random_state_.choice(
                 n, size=n_missing, replace=False, p=p_steal,
             )
-            self.responsibilities_[idx, :] = 0.0
-            self.responsibilities_[idx, k_min] = 1.0
-            Nk = self.responsibilities_.sum(axis=0)
+            self._responsibilities[idx, :] = 0.0
+            self._responsibilities[idx, k_min] = 1.0
+            Nk = self._responsibilities.sum(axis=0)
+        return Nk
+
+    def _eigendecompose_cluster(
+        self, Xc: np.ndarray, Nk_k: float, p: int
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
+        """Return ``(eigvals, eigvecs, rank_eff)`` for one cluster's scatter.
+
+        Two paths give the same eigendecomposition of
+        ``(1/Nk)·X_c^T X_c`` with very different cost:
+
+        * ``eigh(cov)``: ``O(n p^2 + p^3)`` — cheap when ``n >= p``.
+        * ``svd(Xc)``  : ``O(min(n,p)^2 · max(n,p))`` — cheap when ``p > n``.
+
+        For HDDC's signature regime (``n << p``) the SVD path is
+        orders of magnitude faster (~4800× at ``n=100, p=4096``) and
+        is what HDclassif uses internally. We pick whichever is
+        cheaper for the given cluster.
+
+        Parameters
+        ----------
+        Xc : ndarray of shape (n_samples, p)
+            Centred, responsibility-weighted data for one cluster.
+        Nk_k : float
+            Effective cluster count ``sum_i tau_{i,k}`` (>= 1).
+        p : int
+            Ambient feature dimension.
+
+        Returns
+        -------
+        eigvals : ndarray of shape (p,)
+            Eigenvalues sorted non-increasing, zero-padded beyond
+            ``rank_eff``.
+        eigvecs : ndarray of shape (p, p)
+            Corresponding eigenvectors; only the first ``rank_eff``
+            columns carry signal in the SVD branch.
+        rank_eff : int
+            Number of well-defined eigenvalues (``min(n, p)``).
+        """
+        n_samples = Xc.shape[0]
+        if p > n_samples:
+            # Economy SVD of the centred+weighted data matrix.
+            # ``s`` has length ``min(n, p) = n``; the rows of ``Vt``
+            # (shape (n, p)) give the orthonormal signal directions,
+            # ``s²/Nk`` the corresponding eigenvalues.
+            _, s, Vt = np.linalg.svd(Xc, full_matrices=False)
+            eigvals = np.zeros(p)
+            eigvals[:n_samples] = (s * s) / Nk_k
+            # ``eigenvectors_[k]`` is kept as a (p, p) array for
+            # downstream uniformity, but only the first ``n_samples``
+            # columns carry real information; the rest sit in the
+            # null space of X_c^T X_c and are never read (log-density
+            # only slices ``[:, :dk]`` with ``dk < n_samples`` by
+            # construction).
+            eigvecs = np.zeros((p, p))
+            eigvecs[:, :n_samples] = Vt.T
+            rank_eff = n_samples
+        else:
+            cov = (Xc.T @ Xc) / Nk_k
+            cov = 0.5 * (cov + cov.T) + _EPS * np.eye(p)
+            eigvals_asc, eigvecs_asc = linalg.eigh(cov)
+            eigvals = eigvals_asc[::-1]
+            eigvecs = eigvecs_asc[:, ::-1]
+            rank_eff = p
+        return eigvals, eigvecs, rank_eff
+
+    def _m_step(self, X: np.ndarray) -> None:
+        """One EM M-step: refresh ``weights_``, ``means_`` and
+        per-cluster ``(eigenvalues_, eigenvectors_, signal_dims_,
+        noise_variances_)``, then collapse to the resolved sub-model.
+
+        Splits naturally into three sub-steps:
+
+        1. ``_repair_cluster_sizes`` — fix under-populated clusters.
+        2. Per-cluster ``_eigendecompose_cluster`` and Cattell pick.
+        3. ``_apply_model_constraints`` — collapse the free fit to
+           the geometry of the resolved sub-model.
+        """
+        n, p = X.shape
+        Nk = self._responsibilities.sum(axis=0)
+        Nk = self._repair_cluster_sizes(X, Nk)
 
         self.weights_ = Nk / n
-        self.means_ = (self.responsibilities_.T @ X) / Nk[:, None]
+        self.means_ = (self._responsibilities.T @ X) / Nk[:, None]
 
-        n_samples = X.shape[0]
         for k in range(self.n_components):
-            w = np.sqrt(self.responsibilities_[:, k])[:, None]
+            w = np.sqrt(self._responsibilities[:, k])[:, None]
             Xc = (X - self.means_[k]) * w  # shape (n, p)
 
-            # Two paths give the same eigendecomposition of
-            # (1/Nk)·X_c^T X_c, but with very different cost:
-            #
-            # * eigh(cov):     O(n p² + p³)  — cheap when n ≥ p
-            # * svd(Xc):       O(min(n,p)² · max(n,p))  — cheap when p > n
-            #
-            # For HDDC's signature regime (n << p), the SVD path is
-            # orders of magnitude faster (≈1700× at n=100, p=4096) and
-            # is what HDclassif uses internally. We pick whichever is
-            # cheaper per cluster.
-            if p > n_samples:
-                # Economy SVD of the centred+weighted data matrix.
-                # ``s`` has length min(n, p) = n; the right singular
-                # vectors rows of ``Vt`` (shape (n, p)) give the
-                # orthonormal directions, ``s²/Nk`` give the
-                # corresponding eigenvalues.
-                _, s, Vt = np.linalg.svd(Xc, full_matrices=False)
-                eigvals = np.zeros(p)
-                eigvals[:n_samples] = (s * s) / Nk[k]
-                # We keep ``eigenvectors_[k]`` as a (p, p) array for
-                # downstream code uniformity, but only the first
-                # ``n_samples`` columns carry real information; the
-                # rest sit in the null space of X_c^T X_c and are
-                # never read (log-density only slices ``[:, :dk]`` with
-                # ``dk < n_samples`` by construction).
-                eigvecs = np.zeros((p, p))
-                eigvecs[:, :n_samples] = Vt.T
-                # Number of well-defined eigenvalues. The remaining
-                # ``p - rank_eff`` entries are 0 and must not feed the
-                # Cattell rule or the noise-variance average.
-                rank_eff = n_samples
-            else:
-                cov = (Xc.T @ Xc) / Nk[k]
-                cov = 0.5 * (cov + cov.T) + _EPS * np.eye(p)
-                eigvals_asc, eigvecs_asc = linalg.eigh(cov)
-                eigvals = eigvals_asc[::-1]
-                eigvecs = eigvecs_asc[:, ::-1]
-                rank_eff = p
-
+            eigvals, eigvecs, rank_eff = self._eigendecompose_cluster(
+                Xc, Nk[k], p
+            )
             self.eigenvalues_[k] = eigvals
             self.eigenvectors_[k] = eigvecs
 
@@ -918,12 +989,8 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         Returns
         -------
         self : object
-            The fitted estimator. Fitted attributes are
-            ``weights_``, ``means_``, ``eigenvalues_``,
-            ``eigenvectors_``, ``signal_dims_``,
-            ``noise_variances_``, ``responsibilities_``,
-            ``labels_``, ``log_likelihood_``, and
-            ``_geometric_model_``.
+            The fitted estimator. See the class-level
+            ``Attributes`` section for the list of fitted attributes.
 
         Raises
         ------
@@ -978,9 +1045,6 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         else:
             n_outer = self.n_init
 
-        best_ll = -np.inf
-        best = None
-
         # Seed all inits from a single master RNG so the loop works
         # uniformly whether ``self.random_state`` is None, an int, or
         # a RandomState/Generator instance. Each init draws a fresh
@@ -989,63 +1053,86 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         master_rng = check_random_state(self.random_state)
         init_seeds = master_rng.randint(0, np.iinfo(np.int32).max, size=n_outer)
 
-        for init_run in range(n_outer):
-            self.random_state_ = check_random_state(int(init_seeds[init_run]))
-            self.responsibilities_ = self._initialize_responsibilities(X)
-            self.weights_ = self.responsibilities_.sum(axis=0) / n
-            self.means_ = (
-                (self.responsibilities_.T @ X) / self.weights_[:, None] / n
-            )
-            # Placeholders; the first M-step replaces them with the
-            # eigendecomposition of each cluster's full empirical
-            # covariance and then projects onto the resolved HDDC
-            # configuration via ``_apply_model_constraints``.
-            self.eigenvalues_ = [np.ones(p) for _ in range(self.n_components)]
-            self.eigenvectors_ = [
-                np.eye(p) for _ in range(self.n_components)
-            ]
-            self.signal_dims_ = [1] * self.n_components
-            self.noise_variances_ = np.ones(self.n_components)
+        results = [
+            self._run_em(X, seed=int(init_seeds[i]), label=i)
+            for i in range(n_outer)
+        ]
+        self._select_best_init(results)
+        return self
 
-            prev = -np.inf
-            ll = -np.inf
-            converged = False
-            for it in range(self.max_iter):
-                self._m_step(X)
-                ll = self._e_step(X)
-                if self.verbose:
-                    print(f"[init {init_run}] iter {it:4d}  ll={ll:.6f}")
-                if abs(ll - prev) < self.tol:
-                    converged = True
-                    break
-                prev = ll
+    def _run_em(self, X: np.ndarray, seed: int, label: int) -> dict:
+        """Run one EM trial from a fresh init and return the resulting fit.
 
-            if ll > best_ll:
-                best_ll = ll
-                best = dict(
-                    weights_=self.weights_.copy(),
-                    means_=self.means_.copy(),
-                    eigenvalues_=[e.copy() for e in self.eigenvalues_],
-                    eigenvectors_=[v.copy() for v in self.eigenvectors_],
-                    signal_dims_=list(self.signal_dims_),
-                    noise_variances_=self.noise_variances_.copy(),
-                    responsibilities_=self.responsibilities_.copy(),
-                    n_iter_=it + 1,
-                    converged_=converged,
-                )
+        Returns a dict snapshotting the trial's fitted attributes so
+        ``_select_best_init`` can compare across trials without
+        relying on ``self`` state (which the next trial would
+        overwrite).
 
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+        seed : int
+            Per-trial RNG seed drawn from the master RNG.
+        label : int
+            Trial index, used only for ``verbose`` logging.
+        """
+        n, p = X.shape
+        self.random_state_ = check_random_state(seed)
+        self._responsibilities = self._initialize_responsibilities(X)
+        self.weights_ = self._responsibilities.sum(axis=0) / n
+        self.means_ = (
+            (self._responsibilities.T @ X) / self.weights_[:, None] / n
+        )
+        # Placeholders; the first M-step replaces them with the
+        # eigendecomposition of each cluster's full empirical
+        # covariance and then projects onto the resolved HDDC
+        # configuration via ``_apply_model_constraints``.
+        self.eigenvalues_ = [np.ones(p) for _ in range(self.n_components)]
+        self.eigenvectors_ = [np.eye(p) for _ in range(self.n_components)]
+        self.signal_dims_ = [1] * self.n_components
+        self.noise_variances_ = np.ones(self.n_components)
+
+        prev = -np.inf
+        ll = -np.inf
+        converged = False
+        for it in range(self.max_iter):
+            self._m_step(X)
+            ll = self._e_step(X)
+            if self.verbose:
+                print(f"[init {label}] iter {it:4d}  ll={ll:.6f}")
+            if abs(ll - prev) < self.tol:
+                converged = True
+                break
+            prev = ll
+
+        return dict(
+            weights_=self.weights_.copy(),
+            means_=self.means_.copy(),
+            eigenvalues_=[e.copy() for e in self.eigenvalues_],
+            eigenvectors_=[v.copy() for v in self.eigenvectors_],
+            signal_dims_=list(self.signal_dims_),
+            noise_variances_=self.noise_variances_.copy(),
+            _responsibilities=self._responsibilities.copy(),
+            n_iter_=it + 1,
+            converged_=converged,
+            lower_bound_=ll,
+        )
+
+    def _select_best_init(self, results: list) -> None:
+        """Pick the highest-log-likelihood trial and set fitted attrs.
+
+        Mirrors ``GaussianMixture``'s "keep the best of ``n_init``
+        random restarts" pattern. Sets every fitted attribute on
+        ``self`` from the winning trial's snapshot.
+        """
+        best = max(results, key=lambda r: r["lower_bound_"])
         for k, v in best.items():
             setattr(self, k, v)
-        self.log_likelihood_ = best_ll
-        # ``lower_bound_`` is named to match GaussianMixture, but the
-        # semantics are subtly different: GaussianMixture exposes the
-        # ELBO at the last EM iteration of the winning init; here we
-        # expose the best log-likelihood across inits. We do not have
-        # a per-iteration ELBO trace to mimic GaussianMixture exactly,
-        # and "best across inits" is what users almost always want.
-        self.lower_bound_ = best_ll
-        self.labels_ = self.responsibilities_.argmax(axis=1)
-        return self
+        # ``lower_bound_`` mirrors ``GaussianMixture.lower_bound_`` —
+        # log-likelihood at the EM fixed point of the winning init.
+        # (For vanilla EM the ELBO equals the log-likelihood; the name
+        # ``lower_bound_`` is kept for sklearn API parity.)
+        self.labels_ = self._responsibilities.argmax(axis=1)
 
     def _check_fitted(self) -> None:
         check_is_fitted(self, "weights_")
@@ -1168,59 +1255,81 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
     # ------------------------------------------------------------------ #
 
     def bic(self, X):
-        """Bayesian Information Criterion (lower-is-better).
+        """Bayesian information criterion for the current model on the input X.
 
-        ``BIC = nu(K, model) * log n - 2 * log L(X)`` with ``nu``
-        the model-specific free-parameter count (see
-        :meth:`_n_parameters` and ``docs/HDDC.md`` §2) and
-        ``log L`` the sample log-likelihood under the fitted
-        mixture. Matches the sign convention of
-        :meth:`sklearn.mixture.GaussianMixture.bic`.
+        Same sign convention as :meth:`sklearn.mixture.GaussianMixture.bic`
+        (lower is better).
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
-            Data the BIC is evaluated on. Typically the training
-            data, but any ``X`` with the same number of features
-            works.
+        X : array of shape (n_samples, n_features)
+            The input samples.
 
         Returns
         -------
         bic : float
-            BIC value (lower is better).
+            The lower the better.
         """
         self._check_fitted()
-        n_params = self._n_parameters()
-        n = X.shape[0]
-        return -2.0 * self.score_samples(X).sum() + n_params * math.log(n)
+        return -2 * self.score(X) * X.shape[0] + self._n_parameters() * math.log(
+            X.shape[0]
+        )
 
-    def icl(self, X):
-        """Integrated Completed Likelihood (lower-is-better).
+    def aic(self, X):
+        """Akaike information criterion for the current model on the input X.
 
-        ``ICL = BIC + 2 * H`` where
-        ``H = -sum_i sum_k tau_{ik} log tau_{ik}`` is the entropy of
-        the posterior responsibilities at the fitted parameters.
-        Matches the sign convention of the ICL method added to
-        :class:`sklearn.mixture.GaussianMixture` by the companion
-        PR. Uses :func:`scipy.special.xlogy` so zero responsibilities
-        contribute exactly zero (no ``eps`` clip), and ICL reduces
-        to BIC on a hard partition.
+        Same sign convention as :meth:`sklearn.mixture.GaussianMixture.aic`
+        (lower is better).
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
-            Data the ICL is evaluated on.
+        X : array of shape (n_samples, n_features)
+            The input samples.
+
+        Returns
+        -------
+        aic : float
+            The lower the better.
+        """
+        self._check_fitted()
+        return -2 * self.score(X) * X.shape[0] + 2 * self._n_parameters()
+
+    def icl(self, X):
+        """Integrated Completed Likelihood criterion for the current model on the input X.
+
+        Same sign convention as :meth:`bic` (lower is better). See
+        ``docs/INFORMATION_CRITERIA.md`` §2 for the derivation.
+
+        Parameters
+        ----------
+        X : array of shape (n_samples, n_features)
+            The input samples.
 
         Returns
         -------
         icl : float
-            ICL value (lower is better, ``>= bic(X)``).
+            The lower the better.
+
+        Notes
+        -----
+        ``ICL = BIC + 2 H`` with
+        ``H = - sum_i sum_k tau_{ik} log tau_{ik}`` the entropy of the
+        posterior responsibilities at the fitted parameters. Uses
+        :func:`scipy.special.xlogy` so zero responsibilities contribute
+        exactly zero (no ``eps`` clip, no ``RuntimeWarning``), and
+        ``ICL`` reduces to ``BIC`` on a hard partition.
+
+        References
+        ----------
+        .. [1] :doi:`Biernacki, C., Celeux, G., & Govaert, G. (2000).
+           "Assessing a mixture model for clustering with the integrated
+           completed likelihood." IEEE TPAMI, 22(7), 719-725.
+           <10.1109/34.865189>`
         """
         self._check_fitted()
-        bic = self.bic(X)
         resp = self.predict_proba(X)
         entropy = -float(xlogy(resp, resp).sum())
-        return bic + 2.0 * entropy
+        return self.bic(X) + 2.0 * entropy
 
     # ------------------------------------------------------------------ #
     # sklearn tags

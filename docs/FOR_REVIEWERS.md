@@ -331,7 +331,7 @@ you're curious.
 
 ## 7. References
 
-.. [BCG2000] Biernacki, C., Celeux, G., & Govaert, G. (2000). Assessing
+[BCG2000] Biernacki, C., Celeux, G., & Govaert, G. (2000). Assessing
    a mixture model for clustering with the integrated completed
    likelihood. *IEEE TPAMI*, 22(7), 719-725. DOI:10.1109/34.865189.
 

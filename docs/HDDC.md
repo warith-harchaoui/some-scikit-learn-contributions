@@ -802,19 +802,19 @@ initialization.
 
 ## References
 
-.. [Cattell66] Cattell, R. B. (1966). The scree test for the number of
+[Cattell66] Cattell, R. B. (1966). The scree test for the number of
    factors. *Multivariate Behavioral Research*, 1(2), 245-276.
 
-.. [Bouveyron2007] Bouveyron, C., Girard, S., & Schmid, C. (2007).
+[Bouveyron2007] Bouveyron, C., Girard, S., & Schmid, C. (2007).
    High-dimensional data clustering. *Computational Statistics & Data
    Analysis*, 52(1), 502-519.
 
-.. [HDclassif] Berge, L., Bouveyron, C., & Girard, S. (2012).
+[HDclassif] Berge, L., Bouveyron, C., & Girard, S. (2012).
    *HDclassif: an R package for model-based clustering and
    discriminant analysis of high-dimensional data.* Journal of
    Statistical Software, 46(6).
 
-.. [Raiche13] Raiche, G., Walls, T. A., Magis, D., Riopel, M., &
+[Raiche13] Raiche, G., Walls, T. A., Magis, D., Riopel, M., &
    Blais, J.-G. (2013). Non-graphical solutions for Cattell's scree
    test. *Methodology*, 9(1), 23-29.
    DOI:10.1027/1614-2241/a000051. Reviews four automated scree-test

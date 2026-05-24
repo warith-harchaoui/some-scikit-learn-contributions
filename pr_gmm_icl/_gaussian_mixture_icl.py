@@ -37,18 +37,14 @@ from sklearn.utils.validation import check_is_fitted  # noqa: F401 — same.
 
 
 def icl(self, X):
-    """Integrated Completed Likelihood criterion for the current model on X.
-
-    The ICL is the BIC penalized by twice the entropy of the posterior
-    responsibilities, which discourages component configurations whose
-    cluster assignments are highly uncertain (overlapping components).
+    """Integrated Completed Likelihood criterion for the current model on the input X.
 
     You can refer to this :ref:`mathematical section <bic_icl>` for more
     details regarding the formulation of the ICL used.
 
     Parameters
     ----------
-    X : array-like of shape (n_samples, n_dimensions)
+    X : array of shape (n_samples, n_dimensions)
         The input samples.
 
     Returns
@@ -69,8 +65,8 @@ def icl(self, X):
             \\tau_{ik} \\log \\tau_{ik},
 
     where :math:`\\tau_{ik}` are the soft responsibilities at the EM
-    fixed point. The convention is the same as :meth:`bic`
-    (lower is better). On a hard partition (:math:`\\tau \\in \\{0, 1\\}`),
+    fixed point. The convention matches :meth:`bic` (lower is better).
+    On a hard partition (:math:`\\tau \\in \\{0, 1\\}`),
     :math:`H = 0` and ICL reduces to BIC.
 
     On data with heavy tails (e.g. Student-:math:`t` mixtures), BIC tends
