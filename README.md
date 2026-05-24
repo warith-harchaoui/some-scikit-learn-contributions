@@ -10,10 +10,7 @@ snippets, real-world demos, and technical material.
 
 ![ICL vs BIC on a Student-t mixture](figures/fig_icl_student.png)
 
-> BIC and held-out likelihood over-count clusters on heavy-tailed
-> data; ICL doesn't. These PRs make ICL a first-class option for
-> `GaussianMixture` and introduce a new high-dimensional clustering
-> estimator that ships with ICL out of the box.
+> On heavy-tailed data, BIC and held-out likelihood can favor extra Gaussian components that improve density estimation but do not improve clustering. ICL adds an entropy penalty on responsibilities and can select more parsimonious clusterings.
 
 ## The PRs
 
