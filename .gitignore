@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*.pyc
 *.py[cod]
 *.egg-info/
 .venv/
@@ -17,8 +18,5 @@ hdclassif_parity/data/
 
 .claude/
 .continue/
-__pycache__/
-*/__pycache__/
-*.pyc
-*/.pytest_cache/
 .ruff_cache/
+code-analysis/
