@@ -20,7 +20,7 @@ snippets, real-world demos, and technical material.
 | Order | Folder | What it adds |
 | --- | --- | --- |
 | 1 | [`pr_gmm_icl/`](pr_gmm_icl/) | **ICL PR** — `icl()` method on `GaussianMixture`, alongside `bic()` |
-| 2 | [`pr_hddc/`](pr_hddc/)       | **HDDC PR** — new estimator `HighDimensionalGaussianMixture` (14 sub-models) |
+| 2 | [`pr_hddc/`](pr_hddc/)       | **HDDC PR** — new estimator `HighDimensionalGaussianMixture` |
 
 Each `pr_*/` subfolder contains:
 

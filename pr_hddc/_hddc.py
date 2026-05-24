@@ -118,43 +118,88 @@ _MCLUST_CONFUSABLES = frozenset({
 # --------------------------------------------------------------------------
 
 def cattell_scree_test(
-    eigvals: np.ndarray, threshold: float = 0.5
+    eigvals: np.ndarray,
+    threshold: float = 0.5,
+    noise_ctrl: float = 1e-8,
 ) -> int:
-    """Estimate intrinsic dimension via Cattell's scree test.
+    """Estimate intrinsic dimension via the HDclassif Cattell scree rule.
 
-    Relative-drop variant: pick the rank ``d`` as the first index
-    (starting from the location of the maximum drop) at which the
-    consecutive drop falls below ``threshold * max_drop``.
+    Direct port of the algorithm shipped in the R package
+    ``HDclassif`` (Berge, Bouveyron & Girard, 2012), which is the de
+    facto reference HDDC implementation. The rule is:
 
-    See ``docs/HDDC.md`` §3 for the full discussion of why this exact
-    form (not in any peer-reviewed paper) is the one we ship.
+        d = max{ i : (|λ_i − λ_{i+1}| / max_j |λ_j − λ_{j+1}|) > threshold
+                   AND λ_{i+1} > noise_ctrl }
+
+    i.e. the **largest** index where the normalised consecutive drop
+    exceeds ``threshold`` *and* the following eigenvalue stays above
+    the noise floor. If no index satisfies both conditions, ``d``
+    falls back to 1.
+
+    This is intentionally a permissive rule: it can pick d well past
+    the first below-threshold dip, as long as a later drop exceeds
+    the threshold. That matches HDclassif's behaviour and lets the
+    Python implementation reproduce HDclassif fits exactly when the
+    Cattell threshold and noise floor are matched.
 
     Parameters
     ----------
     eigvals : array-like
         Eigenvalues, sorted in non-increasing order.
     threshold : float, default=0.5
-        Sensitivity parameter; smaller is more conservative.
+        Sensitivity parameter; smaller picks larger ``d``. The local
+        default of 0.5 is more conservative than HDclassif's 0.2;
+        see ``docs/HDDC.md`` §3 for the rationale.
+    noise_ctrl : float, default=1e-8
+        Eigenvalues at or below this floor are treated as noise and
+        cannot terminate the signal subspace. Mirrors HDclassif's
+        ``noise.ctrl`` argument.
 
     Returns
     -------
     d : int
         Estimated intrinsic dimension, in ``[1, len(eigvals) - 1]``.
+
+    Notes
+    -----
+    The HDclassif source is essentially::
+
+        dev <- abs(apply(ev, 1, diff))
+        max_dev <- apply(dev, 2, max)
+        dev <- dev / rep(max_dev, each = p - 1)
+        d <- apply((dev > threshold) * (1:(p-1)) * t(ev[, -1] > noise.ctrl),
+                   2, which.max)
+
+    Translated: weight position ``i`` by 1..p-1 when both conditions
+    hold, then ``which.max`` returns the largest such ``i`` (because
+    the weights are monotone in ``i`` and all other entries are 0).
     """
     eigvals = np.asarray(eigvals, dtype=float)
     if not np.all(eigvals[:-1] >= eigvals[1:] - _EPS):
         raise ValueError("eigvals must be sorted in non-increasing order")
-    diffs = np.abs(np.diff(eigvals))
-    if diffs.size == 0:
+    p = eigvals.size
+    if p <= 2:
+        # HDclassif special-cases this as d = 1.
         return 1
+
+    diffs = np.abs(np.diff(eigvals))  # length p - 1
     max_diff = float(np.max(diffs))
     if max_diff == 0.0:
         return 1
-    start = int(np.argmax(diffs))
-    for i in range(start, len(eigvals) - 1):
-        if diffs[i] < threshold * max_diff:
-            return max(1, i)
-    return max(1, len(eigvals) - 1)
+
+    # Normalised drops in [0, 1] and the "next eigenvalue above noise"
+    # mask. Their elementwise product, weighted by position 1..p-1,
+    # gives a vector whose argmax (1-indexed) is the desired d.
+    norm_diffs = diffs / max_diff
+    above_thr = norm_diffs > threshold
+    above_noise = eigvals[1:] > noise_ctrl
+    eligible = above_thr & above_noise
+    if not eligible.any():
+        return 1
+    weights = np.arange(1, p) * eligible
+    # +1 because position i in the diff vector corresponds to keeping
+    # the first i eigenvalues as signal (1-indexed dimension).
+    return int(np.argmax(weights)) + 1
 
 
 # --------------------------------------------------------------------------
@@ -660,28 +705,74 @@ class HighDimensionalGaussianMixture(ClusterMixin, BaseEstimator):
         self.weights_ = Nk / n
         self.means_ = (self.responsibilities_.T @ X) / Nk[:, None]
 
+        n_samples = X.shape[0]
         for k in range(self.n_components):
             w = np.sqrt(self.responsibilities_[:, k])[:, None]
-            Xc = (X - self.means_[k]) * w
-            cov = (Xc.T @ Xc) / Nk[k]
-            cov = 0.5 * (cov + cov.T) + _EPS * np.eye(p)
-            eigvals, eigvecs = linalg.eigh(cov)
-            self.eigenvalues_[k] = eigvals[::-1]
-            self.eigenvectors_[k] = eigvecs[:, ::-1]
+            Xc = (X - self.means_[k]) * w  # shape (n, p)
+
+            # Two paths give the same eigendecomposition of
+            # (1/Nk)·X_c^T X_c, but with very different cost:
+            #
+            # * eigh(cov):     O(n p² + p³)  — cheap when n ≥ p
+            # * svd(Xc):       O(min(n,p)² · max(n,p))  — cheap when p > n
+            #
+            # For HDDC's signature regime (n << p), the SVD path is
+            # orders of magnitude faster (≈1700× at n=100, p=4096) and
+            # is what HDclassif uses internally. We pick whichever is
+            # cheaper per cluster.
+            if p > n_samples:
+                # Economy SVD of the centred+weighted data matrix.
+                # ``s`` has length min(n, p) = n; the right singular
+                # vectors rows of ``Vt`` (shape (n, p)) give the
+                # orthonormal directions, ``s²/Nk`` give the
+                # corresponding eigenvalues.
+                _, s, Vt = np.linalg.svd(Xc, full_matrices=False)
+                eigvals = np.zeros(p)
+                eigvals[:n_samples] = (s * s) / Nk[k]
+                # We keep ``eigenvectors_[k]`` as a (p, p) array for
+                # downstream code uniformity, but only the first
+                # ``n_samples`` columns carry real information; the
+                # rest sit in the null space of X_c^T X_c and are
+                # never read (log-density only slices ``[:, :dk]`` with
+                # ``dk < n_samples`` by construction).
+                eigvecs = np.zeros((p, p))
+                eigvecs[:, :n_samples] = Vt.T
+                # Number of well-defined eigenvalues. The remaining
+                # ``p - rank_eff`` entries are 0 and must not feed the
+                # Cattell rule or the noise-variance average.
+                rank_eff = n_samples
+            else:
+                cov = (Xc.T @ Xc) / Nk[k]
+                cov = 0.5 * (cov + cov.T) + _EPS * np.eye(p)
+                eigvals_asc, eigvecs_asc = linalg.eigh(cov)
+                eigvals = eigvals_asc[::-1]
+                eigvecs = eigvecs_asc[:, ::-1]
+                rank_eff = p
+
+            self.eigenvalues_[k] = eigvals
+            self.eigenvectors_[k] = eigvecs
+
             # Per-cluster signal dim via scree test; the constraint
             # projection in _apply_model_constraints will collapse
             # these if the resolved model has dim=="E". Capped at
-            # ``p - 1`` so the noise subspace is non-empty (otherwise
-            # ``mean(eigvals[dk:])`` is undefined).
+            # ``rank_eff - 1`` so the noise subspace is non-empty.
             d_full = cattell_scree_test(
-                self.eigenvalues_[k], self.cattell_threshold,
+                self.eigenvalues_[k][:rank_eff], self.cattell_threshold,
             )
-            self.signal_dims_[k] = max(1, min(d_full, p - 1))
-            # Per-cluster noise variance; collapsed if noise=="E".
+            self.signal_dims_[k] = max(1, min(d_full, rank_eff - 1, p - 1))
+            # Per-cluster noise variance follows HDclassif's formula:
+            #     b_k = (sum(all_eigvals) - sum(signal_eigvals)) / (p - dk)
+            # i.e. average over the *full* noise subspace dimension
+            # (p - dk), not just the empirically realised rank. When
+            # n > p the two are identical; when n < p the null-space
+            # directions count as zero-variance contributors to the
+            # average, which is the convention HDclassif documents.
             dk = self.signal_dims_[k]
             if dk < p:
+                trace_total = float(np.sum(self.eigenvalues_[k]))
+                signal_sum = float(np.sum(self.eigenvalues_[k][:dk]))
                 self.noise_variances_[k] = max(
-                    float(np.mean(self.eigenvalues_[k][dk:])),
+                    (trace_total - signal_sum) / (p - dk),
                     _EPS,
                 )
             else:  # pragma: no cover - guarded by min above

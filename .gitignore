@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Generated CSVs
+hdclassif_parity/r_out/
+hdclassif_parity/py_out/
+hdclassif_parity/data/
+
+.claude/
+.continue/
+__pycache__/
+*/__pycache__/
+*.pyc
+*/.pytest_cache/
+.ruff_cache/
